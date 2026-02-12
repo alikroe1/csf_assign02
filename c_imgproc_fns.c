@@ -5,6 +5,13 @@
 #include "imgproc.h"
 
 // TODO: define your helper functions here
+int rowIndex(int index, int width) {
+  return index / width;
+}
+
+int columnIndex(int index, int width) {
+  return index % width;
+}
 
 //! Transform the entire image by shrinking it down both 
 //! horizontally and vertically (by potentially different
@@ -42,7 +49,12 @@
 //! @param xfac factor to downsize the image horizontally; guaranteed to be positive
 //! @param yfac factor to downsize the image vertically; guaranteed to be positive
 void imgproc_squash( struct Image *input_img, struct Image *output_img, int32_t xfac, int32_t yfac ) {
-  // TODO: implement
+  int count = 0;
+  for (int i = 0; i < input_img->height * input_img->width; i++) {
+    if (getRow(i, input_img->width) % yfac == 0 && getColumn(i, input_img->width) % xfac == 0) {
+      output_img->data[count++] = input_img->data[i];
+    }
+  }
 }
 
 //! Transform the color component values in each input pixel
