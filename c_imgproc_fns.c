@@ -13,6 +13,31 @@ int columnIndex(int index, int width) {
   return index % width;
 }
 
+uint32_t getPixel( struct Image *input_img, int row, int col) {
+  return input_img->data[row * input_img->width + col];
+}
+
+uint32_t getAlpha(uint32_t pixel) {
+  return pixel & 0xFF;
+}
+
+uint32_t getBlue(uint32_t pixel) {
+  return (pixel >> 8) & 0xFF;
+}
+
+uint32_t getGreen(uint32_t pixel) {
+  return (pixel >> 16) & 0xFF;
+}
+
+uint32_t getRed(uint32_t pixel) {
+  return (pixel >> 24) & 0xFF;
+}
+
+uint32_t createPixel(uint32_t red, uint32_t green, uint32_t blue, uint32_t alpha) {
+  return (red << 24) | (green << 16) | (blue << 8) | alpha;
+    
+}
+
 //! Transform the entire image by shrinking it down both 
 //! horizontally and vertically (by potentially different
 //! factors). This is equivalent to sampling the orignal image
@@ -72,12 +97,7 @@ void imgproc_squash( struct Image *input_img, struct Image *output_img, int32_t 
 //!                   transformed pixels should be stored)
 void imgproc_color_rot( struct Image *input_img, struct Image *output_img) {
   for (int i = 0; i < input_img->width * input_img->height; i++) {
-    uint32_t alpha = input_img->data[i] & 0xFF;
-    uint32_t blue = (input_img->data[i] >> 8) & 0xFF;
-    uint32_t green = (input_img->data[i] >> 16) & 0xFF;
-    uint32_t red = (input_img->data[i] >> 24) & 0xFF;
-    
-    uint32_t temp = (blue << 24) | (red << 16) | (green << 8) | alpha;
+    uint32_t my_pixel = input_img->data[i];
     output_img->data[i] = temp;
   }
 }
@@ -153,5 +173,23 @@ void imgproc_blur( struct Image *input_img, struct Image *output_img, int32_t bl
 //! @param output_img pointer to the output Image (in which the
 //!                   transformed pixels should be stored)
 void imgproc_expand( struct Image *input_img, struct Image *output_img) {
-  // TODO: implement
+  for (int i = 0; i < output_img->width * output_img->height; i++) {
+    // get row and column indexes
+    int row = rowIndex(i, output_img->width);
+    int col = colIndex(i, output_img->width);
+    uint32_t pixel_one = getPixel(input_img, row/2, col/2);
+    uint32_t pixel_two = getPixel(input_img, row/2, col/2 + 1);
+    
+    // handle even pixels
+    if (row % 2 == 0 && col % 2 == 0) {
+      output_img->data[i] = pixel_one;
+    }
+
+    else if (row % 2 == 0 && col % 0 != 0) {
+
+      uint32_t avg_red = (getRed(pixel_one) + getRed(pixel_two)) / 2;
+      uint32_t avg_green = (getGreen(pixel_one) + getGreen(pixel_two)) / 2;
+      uint32_t avg_blue = (getBlue(pixel_one) + getBlue(pixel_two)) / 2;
+      uint32_t avg_alpha = (getAlpha(pixel_one) + getAlpha(pixel_two)) / 2;
+  }
 }
