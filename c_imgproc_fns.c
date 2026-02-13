@@ -37,6 +37,24 @@ uint32_t createPixel(uint32_t red, uint32_t green, uint32_t blue, uint32_t alpha
   return (red << 24) | (green << 16) | (blue << 8) | alpha;
 }
 
+uint32_t createAveragePixel(uint32_t pixel_one, uint32_t pixel_two) {
+  uint32_t avg_red = (getRed(pixel_one) + getRed(pixel_two)) / 2;
+  uint32_t avg_green = (getGreen(pixel_one) + getGreen(pixel_two)) / 2;
+  uint32_t avg_blue = (getBlue(pixel_one) + getBlue(pixel_two)) / 2;
+  uint32_t avg_alpha = (getAlpha(pixel_one) + getAlpha(pixel_two)) / 2;
+
+  return createPixel(avg_red, avg_green, avg_blue, avg_alpha);
+}
+
+int32_t quadAveragePixel(uint32_t pixel_one, uint32_t pixel_two, uint32_t pixel_three, uint32_t pixel_four) {
+  uint32_t avg_red = (getRed(pixel_one) + getRed(pixel_two) + getRed(pixel_three) + getRed(pixel_four)) / 4;
+  uint32_t avg_green = (getGreen(pixel_one) + getGreen(pixel_two) + getGreen(pixel_three) + getGreen(pixel_four)) / 4;
+  uint32_t avg_blue = (getBlue(pixel_one) + getBlue(pixel_two) + getBlue(pixel_three) + getBlue(pixel_four)) / 4;
+  uint32_t avg_alpha = (getAlpha(pixel_one) + getAlpha(pixel_two) + getAlpha(pixel_three) + getAlpha(pixel_four)) / 4;
+
+  return createPixel(avg_red, avg_green, avg_blue, avg_alpha);
+}
+
 //! Transform the entire image by shrinking it down both 
 //! horizontally and vertically (by potentially different
 //! factors). This is equivalent to sampling the orignal image
@@ -208,36 +226,27 @@ void imgproc_expand( struct Image *input_img, struct Image *output_img) {
   for (int i = 0; i < output_img->width * output_img->height; i++) {
     // get row and column indexes
     int row = rowIndex(i, output_img->width);
-    int col = colIndex(i, output_img->width);
-    uint32_t pixel_one = getPixel(input_img, row/2, col/2);
+    int col = columnIndex(i, output_img->width);
+    int right_edge = col/2 + 1 >= input_img->width;
+    int bottom_edge = row/2 + 1 >= input_img->height;
+    uint32_t pixel_original = getPixel(input_img, row/2, col/2);
+    uint32_t pixel_right = right_edge ? pixel_original : getPixel(input_img, row/2, col/2 + 1);
+    uint32_t pixel_below = bottom_edge ? pixel_original : getPixel(input_img, row/2 + 1, col/2);
+    uint32_t pixel_diagonal = (bottom_edge || right_edge) ? (bottom_edge ? pixel_right : pixel_below) : getPixel(input_img, row/2 + 1, col/2 + 1);
 
     // handle even pixels
     if (row % 2 == 0 && col % 2 == 0) {
-      output_img->data[i] = pixel_one;
+      output_img->data[i] = pixel_original;
       continue;
     }
-
-    uint32_t pixel_two = getPixel(input_img, row/2, col/2 + 1);
-
-    if (row % 2 == 0 && col % 0 != 0) {
-      // find average values
-      uint32_t avg_red = (getRed(pixel_one) + getRed(pixel_two)) / 2;
-      uint32_t avg_green = (getGreen(pixel_one) + getGreen(pixel_two)) / 2;
-      uint32_t avg_blue = (getBlue(pixel_one) + getBlue(pixel_two)) / 2;
-      uint32_t avg_alpha = (getAlpha(pixel_one) + getAlpha(pixel_two)) / 2;
-
-      // create pixel with average values
-      output_img->data[i] = createPixel(avg_red, avg_green, avg_blue, avg_alpha);
+    if (col % 2 != 0 && row % 2 == 0) {
+      output_img->data[i] = createAveragePixel(pixel_original, pixel_right);
       continue;
     }
-
-    uint32_t pixel_three = getPixel(input_img, row/2 + 1, col/2);
-
-    if (row % 2 != 0 && col % 0 == 0) {
-      uint32_t avg_red = (getRed(pixel_one) + getRed(pixel_two)) / 2;
-      uint32_t avg_green = (getGreen(pixel_one) + getGreen(pixel_two)) / 2;
-      uint32_t avg_blue = (getBlue(pixel_one) + getBlue(pixel_two)) / 2;
-      uint32_t avg_alpha = (getAlpha(pixel_one) + getAlpha(pixel_two)) / 2;
+    if (row % 2 != 0 && col % 2 == 0) {
+      output_img->data[i] = createAveragePixel(pixel_original, pixel_below);
+      continue;
     }
+    output_img->data[i] = quadAveragePixel(pixel_original, pixel_right, pixel_below, pixel_diagonal);
   }
 }
