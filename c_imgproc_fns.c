@@ -35,7 +35,6 @@ uint32_t getRed(uint32_t pixel) {
 
 uint32_t createPixel(uint32_t red, uint32_t green, uint32_t blue, uint32_t alpha) {
   return (red << 24) | (green << 16) | (blue << 8) | alpha;
-    
 }
 
 //! Transform the entire image by shrinking it down both 
@@ -98,7 +97,7 @@ void imgproc_squash( struct Image *input_img, struct Image *output_img, int32_t 
 void imgproc_color_rot( struct Image *input_img, struct Image *output_img) {
   for (int i = 0; i < input_img->width * input_img->height; i++) {
     uint32_t my_pixel = input_img->data[i];
-    output_img->data[i] = temp;
+    output_img->data[i] = createPixel(getBlue(my_pixel), getRed(my_pixel), getGreen(my_pixel), getAlpha(my_pixel));
   }
 }
 
@@ -166,7 +165,6 @@ void imgproc_blur( struct Image *input_img, struct Image *output_img, int32_t bl
   }
 }
 
-
 //! The `expand` transformation doubles the width and height of the image.
 //! 
 //! Let's say that there are n rows and m columns of pixels in the
@@ -212,18 +210,34 @@ void imgproc_expand( struct Image *input_img, struct Image *output_img) {
     int row = rowIndex(i, output_img->width);
     int col = colIndex(i, output_img->width);
     uint32_t pixel_one = getPixel(input_img, row/2, col/2);
-    uint32_t pixel_two = getPixel(input_img, row/2, col/2 + 1);
-    
+
     // handle even pixels
     if (row % 2 == 0 && col % 2 == 0) {
       output_img->data[i] = pixel_one;
+      continue;
     }
 
-    else if (row % 2 == 0 && col % 0 != 0) {
+    uint32_t pixel_two = getPixel(input_img, row/2, col/2 + 1);
 
+    if (row % 2 == 0 && col % 0 != 0) {
+      // find average values
       uint32_t avg_red = (getRed(pixel_one) + getRed(pixel_two)) / 2;
       uint32_t avg_green = (getGreen(pixel_one) + getGreen(pixel_two)) / 2;
       uint32_t avg_blue = (getBlue(pixel_one) + getBlue(pixel_two)) / 2;
       uint32_t avg_alpha = (getAlpha(pixel_one) + getAlpha(pixel_two)) / 2;
+
+      // create pixel with average values
+      output_img->data[i] = createPixel(avg_red, avg_green, avg_blue, avg_alpha);
+      continue;
+    }
+
+    uint32_t pixel_three = getPixel(input_img, row/2 + 1, col/2);
+
+    if (row % 2 != 0 && col % 0 == 0) {
+      uint32_t avg_red = (getRed(pixel_one) + getRed(pixel_two)) / 2;
+      uint32_t avg_green = (getGreen(pixel_one) + getGreen(pixel_two)) / 2;
+      uint32_t avg_blue = (getBlue(pixel_one) + getBlue(pixel_two)) / 2;
+      uint32_t avg_alpha = (getAlpha(pixel_one) + getAlpha(pixel_two)) / 2;
+    }
   }
 }
