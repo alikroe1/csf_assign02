@@ -130,8 +130,42 @@ void imgproc_color_rot( struct Image *input_img, struct Image *output_img) {
 //!                  component averages used to determine the color
 //!                  components of the output pixel
 void imgproc_blur( struct Image *input_img, struct Image *output_img, int32_t blur_dist ) {
-  // TODO: implement
+  int rows = input_img->height;
+  int cols = input_img->width;
+  
+
+  for (int i = 0; i < rows; i++) {
+    for (int j = 0; j < cols; j++) {
+      int red = 0;
+      int green = 0;
+      int blue = 0;
+      int total = 0;
+
+      for (int k = -blur_dist; k <= blur_dist; k++) {
+        for (int l = -blur_dist; l <= blur_dist; l++) {
+          int currX = i + k;
+          int currY = j + l;
+          if (currX >= 0 && currX < rows && currY >= 0 && currY < cols) {
+
+            uint32_t pixel = input_img->data[currX * cols + currY];
+            red += (pixel >> 24) & 0xFF;
+            green += (pixel >> 16) & 0xFF;
+            blue += (pixel >> 8) & 0xFF;
+            total++;
+          }
+        }
+      }
+      int pos = i * cols + j;
+      uint32_t alpha = input_img->data[pos] & 0xFF;
+      uint32_t r = red / total;
+      uint32_t g = green / total;
+      uint32_t b = blue / total;
+
+      output_img->data[pos] = (r << 24)|(g << 16)|(b << 8)|alpha;
+    }
+  }
 }
+
 
 //! The `expand` transformation doubles the width and height of the image.
 //! 
