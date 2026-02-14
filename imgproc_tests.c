@@ -4,6 +4,8 @@
 #include "tctest.h"
 #include "imgproc.h"
 
+
+
 // Maximum number of pixels in a test image
 #define MAX_NUM_PIXELS 1500
 
@@ -14,6 +16,8 @@ struct TestImageData {
   int32_t width, height;
   uint32_t pixels[MAX_NUM_PIXELS];
 };
+
+
 
 // Include test image data
 #include "test_image_data.h"
@@ -29,8 +33,19 @@ typedef struct {
   struct Image smol, smol_squash_1_1, smol_squash_3_1, smol_squash_1_3,
                smol_color_rot, smol_blur_0, smol_blur_3, smol_expand;
 
-  // TODO: add additional test fixture data as needed
+  
 } TestObjs;
+
+int rowIndex(int index, int width);
+int columnIndex(int index, int width);
+uint32_t getPixel(struct Image *input_img, int row, int col);
+uint32_t getRed(uint32_t pixel);
+uint32_t getGreen(uint32_t pixel);
+uint32_t getBlue(uint32_t pixel);
+uint32_t getAlpha(uint32_t pixel);
+uint32_t createPixel(uint32_t red, uint32_t green, uint32_t blue, uint32_t alpha);
+uint32_t createAveragePixel(uint32_t pixel_one, uint32_t pixel_two);
+int32_t quadAveragePixel(uint32_t pixel_one, uint32_t pixel_two, uint32_t pixel_three, uint32_t pixel_four);
 
 // Functions to create and clean up a test fixture object
 TestObjs *setup( void );
@@ -48,6 +63,16 @@ void test_color_rot_basic( TestObjs *objs );
 void test_blur_basic( TestObjs *objs );
 void test_expand_basic( TestObjs *objs );
 // TODO: add prototypes for additional test functions
+void test_row( TestObjs *objs );
+void test_column( TestObjs *objs );
+void test_pixel( TestObjs *objs );
+void test_red( TestObjs *objs );
+void test_green( TestObjs *objs );
+void test_blue( TestObjs *objs );
+void test_alpha( TestObjs *objs );
+void test_createPix( TestObjs *objs );
+void test_createAvgPix( TestObjs *objs );
+void test_quadAvgPix( TestObjs *objs );
 
 int main( int argc, char **argv ) {
   // allow the specific test to execute to be specified as the
@@ -65,7 +90,21 @@ int main( int argc, char **argv ) {
   TEST( test_blur_basic );
   TEST( test_expand_basic );
 
+
+
+  TEST( test_row );
+  TEST( test_column );
+  TEST( test_pixel );
+  TEST( test_red );
+  TEST( test_green );
+  TEST( test_blue );
+  TEST( test_alpha );
+  TEST( test_createPix );
+  TEST( test_createAvgPix );
+  TEST( test_quadAvgPix );
+
   TEST_FINI();
+
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -189,3 +228,64 @@ void test_expand_basic( TestObjs *objs ) {
 }
 
 // TODO: define additional test functions
+//EDGE CASES FOR 0 OR MAX VALS
+void test_row( TestObjs *objs ) {
+  (void) objs;
+  ASSERT( rowIndex(0, 1) == 0 );
+  ASSERT( rowIndex(7, 1) == 7 );
+}
+
+void test_column( TestObjs *objs ) {
+  (void) objs;
+  ASSERT( columnIndex(0, 1) == 0 );
+  ASSERT( columnIndex(7, 1) == 0 );
+}
+
+void test_pixel( TestObjs *objs ) {
+  int last_r = objs->smol.height - 1;
+  int last_c = objs->smol.width - 1;
+  ASSERT( getPixel(&objs->smol, last_r, last_c) == objs->smol.data[last_r * objs->smol.width + last_c] );
+}
+
+void test_red( TestObjs *objs ) {
+  (void) objs;
+  ASSERT( getRed(0x00000000) == 0x00 );
+  ASSERT( getRed(0xFFFFFFFF) == 0xFF );
+}
+
+void test_green( TestObjs *objs ) {
+  (void) objs;
+  ASSERT( getGreen(0x00000000) == 0x00 );
+  ASSERT( getGreen(0xFFFFFFFF) == 0xFF );
+}
+
+void test_blue( TestObjs *objs ) {
+  (void) objs;
+  ASSERT( getBlue(0x00000000) == 0x00 );
+  ASSERT( getBlue(0xFFFFFFFF) == 0xFF );
+}
+
+void test_alpha( TestObjs *objs ) {
+  (void) objs;
+  ASSERT( getAlpha(0x00000000) == 0x00 );
+  ASSERT( getAlpha(0xFFFFFFFF) == 0xFF );
+}
+
+void test_createPix( TestObjs *objs ) {
+  (void) objs;
+  ASSERT( createPixel(0x00, 0x00, 0x00, 0x00) == 0x00000000 );
+  ASSERT( createPixel(0xFF, 0xFF, 0xFF, 0xFF) == 0xFFFFFFFF );
+}
+
+void test_createAvgPix( TestObjs *objs ) {
+  (void) objs;
+  ASSERT( createAveragePixel(0xFFFFFFFF, 0xFFFFFFFF) == 0xFFFFFFFF );
+  ASSERT( createAveragePixel(0x03030303, 0x00000000) == 0x01010101 );
+}
+
+void test_quadAvgPix( TestObjs *objs ) {
+  (void) objs;
+  ASSERT( quadAveragePixel(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF) == 0xFFFFFFFF );
+  ASSERT( quadAveragePixel(0x05000000, 0x00050000, 0x00000500, 0x00000005) == 0x01010101 );
+}
+
