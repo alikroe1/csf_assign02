@@ -4,39 +4,73 @@
 #include <assert.h>
 #include "imgproc.h"
 
-// TODO: define your helper functions here
+//! Computes row number for given pixel in photo
+//! @param index index of pixel to calculate row number for
+//! @param width width of image
+//! @return row number of pixel
 int rowIndex(int index, int width) {
   return index / width;
 }
 
+//! Computes column number for given pixel in photo
+//! @param index index of pixel to calculate row number for
+//! @param width width of image
+//! @return column number of pixel
 int columnIndex(int index, int width) {
   return index % width;
 }
 
+//! Returns pixel data at given row and column
+//! @param *input_img pointer to image containing pixel
+//! @param row row index of desired pixel
+//! @param col column index of desired pixel
+//! @return desired pixel
 uint32_t getPixel( struct Image *input_img, int row, int col) {
   return input_img->data[row * input_img->width + col];
 }
 
+//! Returns pixel's alpha data
+//! @param pixel pixel whose alpha data we are trying to extract
+//! @return pixel's alpha data
 uint32_t getAlpha(uint32_t pixel) {
   return pixel & 0xFF;
 }
 
+//! Returns pixel's blue data
+//! @param pixel pixel whose alpha data we are trying to extract
+//! @return pixel's blue data
 uint32_t getBlue(uint32_t pixel) {
   return (pixel >> 8) & 0xFF;
 }
 
+//! Returns pixel's green data
+//! @param pixel pixel whose alpha data we are trying to extract
+//! @return pixel's green data
 uint32_t getGreen(uint32_t pixel) {
   return (pixel >> 16) & 0xFF;
 }
 
+//! Returns pixel's red data
+//! @param pixel pixel whose alpha data we are trying to extract
+//! @return pixel's red data
 uint32_t getRed(uint32_t pixel) {
   return (pixel >> 24) & 0xFF;
 }
 
+//! creates new pixel with given RGBA values
+//! @param red pixel's red value
+//! @param green pixel's green value
+//! @param blue pixel's blue value
+//! @param alpha pixel's alpha value
+//! @return new pixel with given RGBA values
 uint32_t createPixel(uint32_t red, uint32_t green, uint32_t blue, uint32_t alpha) {
   return (red << 24) | (green << 16) | (blue << 8) | alpha;
 }
 
+//! creates new pixel whose RGBA values are an average of the 2 input pixels
+//! @param pixel_one first pixel to average
+//! @param pixel_two second pixel to average
+//! @return new average pixel
 uint32_t createAveragePixel(uint32_t pixel_one, uint32_t pixel_two) {
   uint32_t avg_red = (getRed(pixel_one) + getRed(pixel_two)) / 2;
   uint32_t avg_green = (getGreen(pixel_one) + getGreen(pixel_two)) / 2;
@@ -46,6 +80,12 @@ uint32_t createAveragePixel(uint32_t pixel_one, uint32_t pixel_two) {
   return createPixel(avg_red, avg_green, avg_blue, avg_alpha);
 }
 
+//! creates new pixel whose RGBA values are an average of the 4 input pixels
+//! @param pixel_one first pixel to average
+//! @param pixel_two second pixel to average
+//! @param pixel_three third pixel to average
+//! @param pixel_four fourth pixel to average
+//! @return new average pixel
 uint32_t quadAveragePixel(uint32_t pixel_one, uint32_t pixel_two, uint32_t pixel_three, uint32_t pixel_four) {
   uint32_t avg_red = (getRed(pixel_one) + getRed(pixel_two) + getRed(pixel_three) + getRed(pixel_four)) / 4;
   uint32_t avg_green = (getGreen(pixel_one) + getGreen(pixel_two) + getGreen(pixel_three) + getGreen(pixel_four)) / 4;
@@ -91,9 +131,12 @@ uint32_t quadAveragePixel(uint32_t pixel_one, uint32_t pixel_two, uint32_t pixel
 //! @param xfac factor to downsize the image horizontally; guaranteed to be positive
 //! @param yfac factor to downsize the image vertically; guaranteed to be positive
 void imgproc_squash( struct Image *input_img, struct Image *output_img, int32_t xfac, int32_t yfac ) {
+  
+  // get width and height for image output
   int out_w = output_img->width;
   int out_h = output_img->height;
   
+  // go through each pixel and choose to add the necessary pixels to the output image
   for (int i = 0; i < out_h; i++) {
     for (int j = 0; j < out_w; j++) {
       int src_row = i * yfac;
@@ -117,6 +160,8 @@ void imgproc_squash( struct Image *input_img, struct Image *output_img, int32_t 
 //! @param output_img pointer to the output Image (in which the
 //!                   transformed pixels should be stored)
 void imgproc_color_rot( struct Image *input_img, struct Image *output_img) {
+  
+  // go through each pixel and shift RGB values
   for (int i = 0; i < input_img->width * input_img->height; i++) {
     uint32_t my_pixel = input_img->data[i];
     output_img->data[i] = createPixel(getBlue(my_pixel), getRed(my_pixel), getGreen(my_pixel), getAlpha(my_pixel));
@@ -151,10 +196,11 @@ void imgproc_color_rot( struct Image *input_img, struct Image *output_img) {
 //!                  component averages used to determine the color
 //!                  components of the output pixel
 void imgproc_blur( struct Image *input_img, struct Image *output_img, int32_t blur_dist ) {
+  
+  // get row and column numbers
   int rows = input_img->height;
   int cols = input_img->width;
   
-
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
       int red = 0;
@@ -227,12 +273,19 @@ void imgproc_blur( struct Image *input_img, struct Image *output_img, int32_t bl
 //! @param output_img pointer to the output Image (in which the
 //!                   transformed pixels should be stored)
 void imgproc_expand( struct Image *input_img, struct Image *output_img) {
+  
+  // go through each pixel in the output image and handle it properly
   for (int i = 0; i < output_img->width * output_img->height; i++) {
+    
     // get row and column indexes
     int row = rowIndex(i, output_img->width);
     int col = columnIndex(i, output_img->width);
+
+    // figure out if the pixel is an edge
     int right_edge = col/2 + 1 >= input_img->width;
     int bottom_edge = row/2 + 1 >= input_img->height;
+
+    // extract top left pixel
     uint32_t pixel_original = getPixel(input_img, row/2, col/2);
 
     // handle even pixels
@@ -240,37 +293,55 @@ void imgproc_expand( struct Image *input_img, struct Image *output_img) {
       output_img->data[i] = pixel_original;
       continue;
     }
+
+    // handle odd columns but even rows
     if (col % 2 != 0 && row % 2 == 0) {
+      // handle right edges
       if (right_edge) {
         output_img->data[i] = pixel_original;
-      } else {
+      }
+      // handle regular pixels
+      else {
         uint32_t pixel_right = getPixel(input_img, row/2, col/2 + 1);
         output_img->data[i] = createAveragePixel(pixel_original, pixel_right);
       }
       continue;
     }
+
+    // handle even columns but odd rows
     if (row % 2 != 0 && col % 2 == 0) {
+      // handle edges
       if (bottom_edge) {
         output_img->data[i] = pixel_original;
-      } else {
+      } 
+      // handle regular pixels
+      else {
         uint32_t pixel_below = getPixel(input_img, row/2 + 1, col/2);
         output_img->data[i] = createAveragePixel(pixel_original, pixel_below);
       }
       continue;
     }
-    // both odd
+
+    // handle diagonal pixels
     if (!right_edge && !bottom_edge) {
+      // calculate pixel values on all sides of diagonal pixels
       uint32_t pixel_right = getPixel(input_img, row/2, col/2 + 1);
       uint32_t pixel_below = getPixel(input_img, row/2 + 1, col/2);
       uint32_t pixel_diagonal = getPixel(input_img, row/2 + 1, col/2 + 1);
       output_img->data[i] = quadAveragePixel(pixel_original, pixel_right, pixel_below, pixel_diagonal);
-    } else if (!right_edge) {
+    } 
+    // handle non-side-edges
+    else if (!right_edge) {
       uint32_t pixel_right = getPixel(input_img, row/2, col/2 + 1);
       output_img->data[i] = createAveragePixel(pixel_original, pixel_right);
-    } else if (!bottom_edge) {
+    } 
+    // handle non-bottom0edges
+    else if (!bottom_edge) {
       uint32_t pixel_below = getPixel(input_img, row/2 + 1, col/2);
       output_img->data[i] = createAveragePixel(pixel_original, pixel_below);
-    } else {
+    } 
+    // handle bottom corner case
+    else {
       output_img->data[i] = pixel_original;
     }
   }
