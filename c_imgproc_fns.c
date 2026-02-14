@@ -46,7 +46,7 @@ uint32_t createAveragePixel(uint32_t pixel_one, uint32_t pixel_two) {
   return createPixel(avg_red, avg_green, avg_blue, avg_alpha);
 }
 
-int32_t quadAveragePixel(uint32_t pixel_one, uint32_t pixel_two, uint32_t pixel_three, uint32_t pixel_four) {
+uint32_t quadAveragePixel(uint32_t pixel_one, uint32_t pixel_two, uint32_t pixel_three, uint32_t pixel_four) {
   uint32_t avg_red = (getRed(pixel_one) + getRed(pixel_two) + getRed(pixel_three) + getRed(pixel_four)) / 4;
   uint32_t avg_green = (getGreen(pixel_one) + getGreen(pixel_two) + getGreen(pixel_three) + getGreen(pixel_four)) / 4;
   uint32_t avg_blue = (getBlue(pixel_one) + getBlue(pixel_two) + getBlue(pixel_three) + getBlue(pixel_four)) / 4;
@@ -230,9 +230,6 @@ void imgproc_expand( struct Image *input_img, struct Image *output_img) {
     int right_edge = col/2 + 1 >= input_img->width;
     int bottom_edge = row/2 + 1 >= input_img->height;
     uint32_t pixel_original = getPixel(input_img, row/2, col/2);
-    uint32_t pixel_right = right_edge ? pixel_original : getPixel(input_img, row/2, col/2 + 1);
-    uint32_t pixel_below = bottom_edge ? pixel_original : getPixel(input_img, row/2 + 1, col/2);
-    uint32_t pixel_diagonal = (bottom_edge || right_edge) ? (bottom_edge ? pixel_right : pixel_below) : getPixel(input_img, row/2 + 1, col/2 + 1);
 
     // handle even pixels
     if (row % 2 == 0 && col % 2 == 0) {
@@ -240,13 +237,37 @@ void imgproc_expand( struct Image *input_img, struct Image *output_img) {
       continue;
     }
     if (col % 2 != 0 && row % 2 == 0) {
-      output_img->data[i] = createAveragePixel(pixel_original, pixel_right);
+      if (right_edge) {
+        output_img->data[i] = pixel_original;
+      } else {
+        uint32_t pixel_right = getPixel(input_img, row/2, col/2 + 1);
+        output_img->data[i] = createAveragePixel(pixel_original, pixel_right);
+      }
       continue;
     }
     if (row % 2 != 0 && col % 2 == 0) {
-      output_img->data[i] = createAveragePixel(pixel_original, pixel_below);
+      if (bottom_edge) {
+        output_img->data[i] = pixel_original;
+      } else {
+        uint32_t pixel_below = getPixel(input_img, row/2 + 1, col/2);
+        output_img->data[i] = createAveragePixel(pixel_original, pixel_below);
+      }
       continue;
     }
-    output_img->data[i] = quadAveragePixel(pixel_original, pixel_right, pixel_below, pixel_diagonal);
+    // both odd
+    if (!right_edge && !bottom_edge) {
+      uint32_t pixel_right = getPixel(input_img, row/2, col/2 + 1);
+      uint32_t pixel_below = getPixel(input_img, row/2 + 1, col/2);
+      uint32_t pixel_diagonal = getPixel(input_img, row/2 + 1, col/2 + 1);
+      output_img->data[i] = quadAveragePixel(pixel_original, pixel_right, pixel_below, pixel_diagonal);
+    } else if (!right_edge) {
+      uint32_t pixel_right = getPixel(input_img, row/2, col/2 + 1);
+      output_img->data[i] = createAveragePixel(pixel_original, pixel_right);
+    } else if (!bottom_edge) {
+      uint32_t pixel_below = getPixel(input_img, row/2 + 1, col/2);
+      output_img->data[i] = createAveragePixel(pixel_original, pixel_below);
+    } else {
+      output_img->data[i] = pixel_original;
+    }
   }
 }
