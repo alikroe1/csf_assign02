@@ -198,8 +198,8 @@ int out_dimensions_squash( struct Image *input_img, int argc, char **argv, int32
   int32_t xfac, yfac;
   if ( !squash_get_factors( argc, argv, &xfac, &yfac ) )
     return 0;
-  *out_w = (input_img->width + xfac - 1) / xfac;
-  *out_h = (input_img->height + yfac - 1) / yfac;
+  *out_w = input_img->width / xfac;
+  *out_h = input_img->height / yfac;
   return 1;
 }
 

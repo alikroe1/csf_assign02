@@ -91,10 +91,14 @@ int32_t quadAveragePixel(uint32_t pixel_one, uint32_t pixel_two, uint32_t pixel_
 //! @param xfac factor to downsize the image horizontally; guaranteed to be positive
 //! @param yfac factor to downsize the image vertically; guaranteed to be positive
 void imgproc_squash( struct Image *input_img, struct Image *output_img, int32_t xfac, int32_t yfac ) {
-  int count = 0;
-  for (int i = 0; i < input_img->height * input_img->width; i++) {
-    if (rowIndex(i, input_img->width) % yfac == 0 && columnIndex(i, input_img->width) % xfac == 0) {
-      output_img->data[count++] = input_img->data[i];
+  int out_w = output_img->width;
+  int out_h = output_img->height;
+  
+  for (int i = 0; i < out_h; i++) {
+    for (int j = 0; j < out_w; j++) {
+      int src_row = i * yfac;
+      int src_col = j * xfac;
+      output_img->data[i * out_w + j] = input_img->data[src_row * input_img->width + src_col];
     }
   }
 }
