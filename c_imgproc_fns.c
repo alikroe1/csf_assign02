@@ -201,6 +201,7 @@ void imgproc_blur( struct Image *input_img, struct Image *output_img, int32_t bl
   int rows = input_img->height;
   int cols = input_img->width;
   
+  //for all pixels...
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
       int red = 0;
@@ -208,10 +209,13 @@ void imgproc_blur( struct Image *input_img, struct Image *output_img, int32_t bl
       int blue = 0;
       int total = 0;
 
+      //scan the suround pixels of said pixel
       for (int k = -blur_dist; k <= blur_dist; k++) {
         for (int l = -blur_dist; l <= blur_dist; l++) {
           int currX = i + k;
           int currY = j + l;
+
+          //for pixels that are next to border, discard
           if (currX >= 0 && currX < rows && currY >= 0 && currY < cols) {
 
             uint32_t pixel = input_img->data[currX * cols + currY];
@@ -223,6 +227,7 @@ void imgproc_blur( struct Image *input_img, struct Image *output_img, int32_t bl
         }
       }
       int pos = i * cols + j;
+      //avg
       uint32_t alpha = input_img->data[pos] & 0xFF;
       uint32_t r = red / total;
       uint32_t g = green / total;
