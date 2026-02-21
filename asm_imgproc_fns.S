@@ -107,7 +107,45 @@ imgproc_squash:
  */
 	.globl imgproc_color_rot
 imgproc_color_rot:
-	/* TODO: implement */
+	# similarly to our C function, find dimensions of image and iterate and change each pixel shifting colors
+	
+	#get pixel height and width and store dimensions to eax
+	movl (%rdi), %eax
+	imull 4(%rdi), eax
+
+	#store picture dimensions into r12
+	pushq %r12
+	movl %eax, %r12d
+
+	#find the data value and store into r13
+	pushq %r13
+	movq 8(%rdi), %r13
+
+	#same for our image and output image 
+	pushq %r14
+	movq 8(%rdi), %r14
+	pushq %r15
+	movq 8(%rsi), %r15
+
+	#set the start of our loop to 0
+	pushq %r15
+	movl $0, %r15
+
+.Lclr_rot_loop:
+	#set out loop iterate through every pixel
+	cmpl %r12d, %r15d
+	jge	clr_rot_loop_done
+
+	#for each pixel, store data
+	movl  (%r13, %r15, 4), %eax
+
+
+
+
+
+
+
+
 	ret
 
 
