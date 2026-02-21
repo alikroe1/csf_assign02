@@ -15,6 +15,8 @@
  * them visible to the test code.
  */
 
+
+
 /*
  * Definitions of image transformation functions
  */
@@ -58,7 +60,34 @@
  */
 	.globl imgproc_squash
 imgproc_squash:
-	/* TODO: implement */
+	
+	movl $0, %r10; %r10 = int i = 0
+	outer_for:
+		cmpl (%rsi + 4), %r10; if i < out_h
+		jge end_outer;
+		
+		movl $0, %r11; %r11 = int j = 0
+		inner_for:
+			cmp (%rsi), %r11;
+			jge end_inner;
+
+			movl [%rsi], %r8;
+			imul %r10, %r8;
+			addl %r10, %r8; %r8 = i * out_w + j
+
+			movl [%rdi], %r9;
+			imul %r10, %r9;
+			imul %ecx, %r9;
+			movl %r11, %rax;
+			imul %edx, %rax;
+			addl %rax, %r9; %r9 = src_row * input_img->width + src_col
+
+
+			movl %rax
+	movl 
+
+
+
 	ret
 
 /*
