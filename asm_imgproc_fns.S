@@ -79,43 +79,74 @@ imgproc_squash:
 	.globl imgproc_color_rot
 imgproc_color_rot:
 	# similarly to our C function, find dimensions of image and iterate and change each pixel shifting colors
-	
+	pushq %r12
+	pushq %r13
+	pushq %r14
+	pushq %r15
+
 	#get pixel height and width and store dimensions to eax
 	movl (%rdi), %eax
-	imull 4(%rdi), eax
+	imull 4(%rdi), %eax
 
 	#store picture dimensions into r12
-	pushq %r12
 	movl %eax, %r12d
 
 	#find the data value and store into r13
-	pushq %r13
 	movq 8(%rdi), %r13
 
 	#same for our image and output image 
-	pushq %r14
-	movq 8(%rdi), %r14
-	pushq %r15
-	movq 8(%rsi), %r15
+	movq 8(%rsi), %r14
+	
 
 	#set the start of our loop to 0
-	pushq %r15
-	movl $0, %r15
+	movl $0, %r15d
 
 .Lclr_rot_loop:
 	#set out loop iterate through every pixel
 	cmpl %r12d, %r15d
-	jge	clr_rot_loop_done
+	jge	.Lclr_rot_loop_done
 
-	#for each pixel, store data
-	movl  (%r13, %r15, 4), %eax
+	#for each pixel, store data (r13 = data of r15 value)
+	movl (%r13, %r15, 4), %eax
 
+	#get the rgb + alpha of each pixel
+	movl %eax, %r8d
+	shrl $24, %r8d          
 
+	movl %eax, %r9d
+	shrl $16, %r9d
+	andl $0xFF, %r9d     
 
+	movl %eax, %r10d
+	shrl $8, %r10d
+	andl $0xFF, %r10d    
 
+	movl %eax, %r11d
+	andl $0xFF, %r11d 
 
+	#create new pixel based on the colors and shift accordingly
+	shll $24, %r10d
+	shll $16, %r8d  
+	shll $8, %r9d 
 
+	#now add the shifts to r10d
+	orl %r8d, %r10d
+	orl %r9d, %r10d
+	orl %r11d, %r10d    
 
+	#store this new data to r15, our output
+	movl %r10d, (%r14, %r15, 4)   
+
+	#increment for next pixel
+	incl %r15d
+	jmp .Lclr_rot_loop
+
+.Lclr_rot_loop_done:
+	#free memory of our variables
+	popq %r15
+	popq %r14
+	popq %r13
+	popq %r12
 
 	ret
 
