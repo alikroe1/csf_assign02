@@ -81,11 +81,11 @@ imgproc_squash:
  	*   -28(%rbp) - 1 if column is odd, 0 if even
  	*/
 	
-	push %r12;
-	push %r13;
-	push %r14;
-	push %r15;
-	push %rbx;
+	pushq %r12;
+	pushq %r13;
+	pushq %r14;
+	pushq %r15;
+	pushq %rbx;
 
 	movl $0, %r12d; %r12d = int i = 0
 	.Louter_for_squash:
@@ -95,39 +95,40 @@ imgproc_squash:
 		movl $0, %r13d; %r13d = int j = 0
 		.Linner_for_squash:
 			cmp (%rsi), %r13d; compare j ? out_w
-			jge .Louter_for_squash; if j >= out_w, jump to outer_for
+			jge .Lend_inner_squash; if j >= out_w, jump to outer_for
 
-			movl (%rsi), %r14; %r14 = out_w
-			imul %r12d, %r14; %r14 = out_w * i
-			addl %r12d, %r14; %r14 = out_w * i + j
-			imul $4, %r14; %r14 = (out_w * i + j) * 4
-
-			movl (%rdi), %r15; %r15 = input_image->width
-			imul %r12d, %r15; %r15 = input_image->width * i
-			imul %ecx, %r15; %r15 = input_image->width * i * y_fac
-			movl %r13d, %rbx; %rbx = j
-			imul %edx, %rbx; %rbx = j * x_fac
-			addl %rbx, %r15; %r15 = input_image->width * i * y_fac + j * x_fac
-			imul $4, %r15; %r15 = (input_image->width * i * y_fac + j * x_fac) * 4
-
-			movl (%rsi + 8), %rbx; %rbx = pointer to output_img->data
-			addl %r14, %rbx; %rbx = %output_img->data + (out_w * i + j) * 4
-			movl (%rdi + 8), %r14; %r14 = pointer to input_img->data
-			addl %r15, %r14; %r14; %r14 = pointer to input_img->data + (input_image->width * i * y_fac + j * x_fac) * 4
-			movl (%r14), (%rbx); output_img->data[i * out_w + j] = input_img->data[src_row * input_img->width + src_col];
+			movl (%rsi), %r14d; %r14d = out_w
+			imul %r12d, %r14d; %r14d = out_w * i
+			addl %r13d, %r14d; %r14d = out_w * i + j
+			
+			movl (%rdi), %r15d; %r15d = input_image->width
+			imul %r12d, %r15d; %r15d = input_image->width * i
+			imul %ecx, %r15d; %r15d = input_image->width * i * y_fac
+			movl %r13d, %ebx; %ebx = j
+			imul %edx, %ebx; %ebx = j * x_fac
+			addl %ebx, %r15d; %r15d = input_image->width * i * y_fac + j * x_fac
+			
+			movq 8(%rdi), %rbx
+			movl (%rbx,%r15,4), %eax
+			movq 8(%rsi), %r15
+			movl %eax, (%r15,%r14,4)
 
 			addl $1, %r13d; j++
-			addl $1, %r12d; i++
-		jmp .Linner_for_squash;
-	.Lend_outer_squash:
+			jmp .Linner_for_squash
 
-	pop %r12;
-	pop %r13;
-	pop %r14;
-	pop %r15;
-	pop %rbx;
+			.Lend_inner_squash:
+				addl $1, %r12d; i++
+				jmp .Louter_for_squash
+		
+		.Lend_outer_squash:
 
-	ret
+			popq %rbx;
+			popq %r15;
+			popq %r14;
+			popq %r13;
+			popq %r12;
+
+			ret
 
 /*
  *  Transform the color component values in each input pixel
