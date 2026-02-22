@@ -60,34 +60,59 @@
  */
 	.globl imgproc_squash
 imgproc_squash:
+
+	/*
+ 	* Parameters:
+	*   %rdi - pointer to input Image
+	*   %rsi - pointer to output Image
+	*   %edx - x_fac
+	*   %ecx - y_fac
+	*   
+	* Register use:
+ 	*   %r12 - pointer to input Image
+ 	*   %r13 - pointer to output Image
+ 	*   %r14d - output pixel row (i)
+ 	*   %r15d - output pixel column (j)
+ 	*   %ebx - computed pixel value
+ 	*
+ 	* Memory use:
+ 	*   -20(%rbp) - base address of PixelAverager instance
+ 	*   -24(%rbp) - 1 if row is odd, 0 if even
+ 	*   -28(%rbp) - 1 if column is odd, 0 if even
+ 	*/
 	
-	movl $0, %r10; %r10 = int i = 0
+	movl $0, %r12d; %r12d = int i = 0
 	outer_for:
-		cmpl (%rsi + 4), %r10; if i < out_h
-		jge end_outer;
+		cmpl (%rsi + 4), %r12d; compare i ? out_h
+		jge end_outer; if i >= h, jump to end_outer
 		
-		movl $0, %r11; %r11 = int j = 0
+		movl $0, %r13d; %r13d = int j = 0
 		inner_for:
-			cmp (%rsi), %r11;
-			jge end_inner;
+			cmp (%rsi), %r13d; compare j ? out_w
+			jge outer_for; if j >= out_w, jump to outer_for
 
-			movl [%rsi], %r8;
-			imul %r10, %r8;
-			addl %r10, %r8; %r8 = i * out_w + j
+			movl (%rsi), %r14; %r14 = out_w
+			imul %r12d, %r14; %r14 = out_w * i
+			addl %r12d, %r14; %r14 = out_w * i + j
+			imul $4, %r14; %r14 = (out_w * i + j) * 4
 
-			movl [%rdi], %r9;
-			imul %r10, %r9;
-			imul %ecx, %r9;
-			movl %r11, %rax;
-			imul %edx, %rax;
-			addl %rax, %r9; %r9 = src_row * input_img->width + src_col
+			movl (%rdi), %r15; %r15 = input_image->width
+			imul %r12d, %r15; %r15 = input_image->width * i
+			imul %ecx, %r15; %r15 = input_image->width * i * y_fac
+			movl %r13d, %rbx; %rbx = j
+			imul %edx, %rbx; %rbx = j * x_fac
+			addl %rbx, %r15; %r15 = input_image->width * i * y_fac + j * x_fac
+			imul $4, %r15; %r15 = (input_image->width * i * y_fac + j * x_fac) * 4
 
+			movl (%rsi + 8), %rbx; %rbx = pointer to output_img->data
+			addl %r14, %rbx; %rbx = %output_img->data + (out_w * i + j) * 4
+			movl (%rdi + 8), %r14; %r14 = pointer to input_img->data
+			addl %r15, %r14; %r14; %r14 = pointer to input_img->data + (input_image->width * i * y_fac + j * x_fac) * 4
+			movl (%r14), (%rbx); output_img->data[i * out_w + j] = input_img->data[src_row * input_img->width + src_col];
 
-			movl %rax
-	movl 
-
-
-
+			addl $1, %r13d; j++
+		jmp inner_for;
+	end_outer:
 	ret
 
 /*
