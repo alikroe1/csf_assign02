@@ -8,7 +8,7 @@ CFLAGS = -g -Wall -no-pie
 
 ASMFLAGS = -g -no-pie -DASM_SOURCE
 
-LDFLAGS = -no-pie -z noexecstack
+LDFLAGS = -no-pie
 
 C_MAIN_SRCS = c_imgproc_main.c
 C_MAIN_OBJS = $(C_MAIN_SRCS:.c=.o)
