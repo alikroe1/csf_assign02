@@ -62,6 +62,7 @@
 imgproc_squash:
 
 	/*
+	* 
  	* Parameters:
 	*   %rdi - pointer to input Image
 	*   %rsi - pointer to output Image
@@ -69,16 +70,13 @@ imgproc_squash:
 	*   %ecx - y_fac
 	*   
 	* Register use:
- 	*   %r12 - pointer to input Image
- 	*   %r13 - pointer to output Image
- 	*   %r14d - output pixel row (i)
- 	*   %r15d - output pixel column (j)
- 	*   %ebx - computed pixel value
+ 	*   %r12 - output pixel row (i)
+ 	*   %r13 - output pixel column (j)
+ 	*   %r14d - output image pixel index (out_w * i + j)
+ 	*   %r15d - input image pixel index (input_image->width * i * y_fac + j * x_fac)
+ 	*   %rbx - intermediary arithmetic value
+	*   %eax - input_img pixel
  	*
- 	* Memory use:
- 	*   -20(%rbp) - base address of PixelAverager instance
- 	*   -24(%rbp) - 1 if row is odd, 0 if even
- 	*   -28(%rbp) - 1 if column is odd, 0 if even
  	*/
 	
 	pushq %r12
@@ -108,10 +106,10 @@ imgproc_squash:
 			imul %edx, %ebx # %ebx = j * x_fac
 			addl %ebx, %r15d # %r15d = input_image->width * i * y_fac + j * x_fac
 			
-			movq 8(%rdi), %rbx
-			movl (%rbx,%r15,4), %eax
-			movq 8(%rsi), %r15
-			movl %eax, (%r15,%r14,4)
+			movq 8(%rdi), %rbx # store input_img->data
+			movl (%rbx,%r15,4), %eax # store input_img->data[src_row * input_img->width + src_col]
+			movq 8(%rsi), %r15 # store output_img->data
+			movl %eax, (%r15,%r14,4) # replace output_img->data[i * out_w + j]
 
 			addl $1, %r13d # j++
 			jmp .Linner_for_squash
