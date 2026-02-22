@@ -81,15 +81,21 @@ imgproc_squash:
  	*   -28(%rbp) - 1 if column is odd, 0 if even
  	*/
 	
+	push %r12;
+	push %r13;
+	push %r14;
+	push %r15;
+	push %rbx;
+
 	movl $0, %r12d; %r12d = int i = 0
-	outer_for:
-		cmpl (%rsi + 4), %r12d; compare i ? out_h
-		jge end_outer; if i >= h, jump to end_outer
+	.Louter_for_squash:
+		cmpl 4(%rsi), %r12d; compare i ? out_h
+		jge .Lend_outer_squash; if i >= h, jump to end_outer
 		
 		movl $0, %r13d; %r13d = int j = 0
-		inner_for:
+		.Linner_for_squash:
 			cmp (%rsi), %r13d; compare j ? out_w
-			jge outer_for; if j >= out_w, jump to outer_for
+			jge .Louter_for_squash; if j >= out_w, jump to outer_for
 
 			movl (%rsi), %r14; %r14 = out_w
 			imul %r12d, %r14; %r14 = out_w * i
@@ -111,8 +117,16 @@ imgproc_squash:
 			movl (%r14), (%rbx); output_img->data[i * out_w + j] = input_img->data[src_row * input_img->width + src_col];
 
 			addl $1, %r13d; j++
-		jmp inner_for;
-	end_outer:
+			addl $1, %r12d; i++
+		jmp .Linner_for_squash;
+	.Lend_outer_squash:
+
+	pop %r12;
+	pop %r13;
+	pop %r14;
+	pop %r15;
+	pop %rbx;
+
 	ret
 
 /*
