@@ -113,11 +113,11 @@ imgproc_squash:
 			movq 8(%rsi), %r15
 			movl %eax, (%r15,%r14,4)
 
-			addl $1, %r13d; j++
+			addl $1, %r13d # j++
 			jmp .Linner_for_squash
 
 			.Lend_inner_squash:
-				addl $1, %r12d; i++
+				addl $1, %r12d # i++
 				jmp .Louter_for_squash
 		
 		.Lend_outer_squash:
