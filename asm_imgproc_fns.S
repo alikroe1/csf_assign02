@@ -145,6 +145,19 @@ imgproc_squash:
  */
 	.globl imgproc_color_rot
 imgproc_color_rot:
+	/*
+	 * Register use:
+	 *   %r12d - total number of pixels by height * width
+	 *   %r13 - pointer to input image data 
+	 *   %r14 - pointer to output image data 
+	 *   %r15d - loop index/current pixel
+	 *
+	 *   %eax - temp variable for current pixel value 
+	 *   %r8d - red component 
+	 *   %r9d - green component 
+	 *   %r10d - blue component 
+	 *   %r11d - alpha component 
+	 */
 	# similarly to our C function, find dimensions of image and iterate and change each pixel shifting colors
 	pushq %r12
 	pushq %r13
