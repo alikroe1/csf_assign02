@@ -66,7 +66,7 @@ getPixel:
 	addl %edx, %eax
 	movq 8(%rdi), %rdx
 	movslq %eax, %rax
-	movl (%rdx, %eax, 4), %eax
+	movl (%rdx, %rax, 4), %eax
 	ret
 
 .globl getRed
@@ -597,7 +597,7 @@ imgproc_blur:
 	pushq %r13
 	pushq %r14
 	pushq %r15
-	subq $40, %rsp
+	subq $8, %rsp
 
 	#use our variables for our inputs
 	movq %rdi, %r12 #r12 = input_img
@@ -621,91 +621,130 @@ imgproc_blur:
 	cmpl %ebx, %r9d
 	jge .Lfor_loop1_increment    
 
-	#pixelAverage struct
-	leaq -20(%rbp), %rdi
-	call pa_init
-	
-	# save i and j on stack
-	movl %r8d, -32(%rbp)
-	movl %r9d, -36(%rbp)
+	movl $0, %ecx #red
+	movl $0, %ebp #green
+	movl $0, (%rsp) #blue
+	movl $0, 4(%rsp) #total
 
 	#set k = -blur_dist
-	movl %r14d, %r8d
-	negl %r8d
+	movl %r14d, %edi
+	negl %edi
 
 .Lfor_loop3:
 	#iterate k from -blur_dist to blur_dist
-	cmpl %r14d, %r8d
+	cmpl %r14d, %edi
 	jg .Lfor_loop3_done
 
 	#set l = -blur_dist
-	movl %r14d, %r9d
-	negl %r9d
+	movl %r14d, %esi
+	negl %esi
 
 .Lfor_loop4:
 	#iterate l from -blur_dist to blur_dist
-	cmpl %r14d, %r9d
+	cmpl %r14d, %esi
 	jg .Lfor_loop3_increment
 
-	#l and j save to stack
-	movl %r8d, -24(%rbp)
-	movl %r9d, -28(%rbp)
+	#currX = i + k
+	movl %r8d, %edx
+	addl %edi, %edx
 
-	#input img
-	movq %r12, %rdi
-	#i from stack
-	movl -32(%rbp), %esi
-	#i + k
-	addl %r8d, %esi
-	#j from stakck
-	movl -36(%rbp), %edx
-	#j + l
-	addl %r9d, %edx
+	#border x check
+	cmpl $0, %edx
+	jl .Lskip_pixel
+	cmpl %r15d, %edx
+	jge .Lskip_pixel
 
-	#pixel average
-	leaq -20(%rbp), %rcx
+	#currY = j + l
+	movl %r9d, %eax
+	addl %esi, %eax
 
-	#update current pixel to blurred one
-	call pa_update_from_img
+	#border y pixel check
+	cmpl $0, %eax
+	jl .Lskip_pixel
+	cmpl %ebx, %eax
+	jge .Lskip_pixel
+	
+	#get current and get colors
+	imull %ebx, %edx
+	addl %eax, %edx
+	movq 8(%r12), %rax
+	movl (%rax,%rdx,4), %edx
+	
+	#get red and add
+	movl %edx, %eax
+	shrl $24, %eax
+	andl $0xFF, %eax
+	addl %eax, %ecx
 
-	#get k and l from stack
-	movl -24(%rbp), %r8d
-	movl -28(%rbp), %r9d
+	#get green and add
+	movl %edx, %eax
+	shrl $16, %eax
+	andl $0xFF, %eax
+	addl %eax, %ebp
 
-	#increment 
-	incl %r9d
+	#get blue and add
+	movl %edx, %eax
+	shrl $8, %eax
+	andl $0xFF, %eax
+	addl %eax, (%rsp)
+
+	#increment total
+	incl 4(%rsp)
+
+
+.Lskip_pixel:
+	#increment l
+	incl %esi
 	jmp .Lfor_loop4
-
 .Lfor_loop3_increment:
 	# increment for next row(inner)
-	incl %r8d
+	incl %edi
 	jmp .Lfor_loop3
 
 .Lfor_loop3_done:
-	#i and j from stack
-	movl -32(%rbp), %r8d
-	movl -36(%rbp), %r9d
-
-	#get avg pixel val
-	leaq -20(%rbp), %rdi
-	call pa_avg_pixel
-	
-
 	#get pos = i * cols + j
-	movl %r8d, %edx
-	imull %ebx, %edx
-	addl %r9d, %edx
+	movl %r8d, %eax
+	imull %ebx, %eax
+	addl %r9d, %eax
 
-	#get and replace alpha for new blurred pixel
-	movq 8(%r12), %rcx
-	movl (%rcx,%rdx,4), %ecx
+	#save position to edi
+	movl %eax, %edi   
 
-	#get OG alpha
-	andl $0xFF, %ecx
+	#get OG alpha from input pixel
+	movq 8(%r12), %rax
+	movl (%rax,%rdi,4), %eax
+	andl $0xFF, %eax
 
-	#replace blurred alpha with OG alpha
-	andl $0xFFFFFF00, %eax
-	orl %ecx, %eax
+	# esi = alpha
+	movl %eax, %esi       
+
+	#load total for division
+	movl 4(%rsp), %r10d
+
+	#avg red = red / total
+	movl %ecx, %eax
+	cdq
+	idivl %r10d
+	movl %eax, %r11d
+
+	#avg green = green / total
+	movl %ebp, %eax
+	cdq
+	idivl %r10d
+	movl %eax, %ecx
+
+	#avg blue = blue / total
+	movl (%rsp), %eax
+	cdq
+	idivl %r10d
+
+	#create new pixel with our new RGB and A
+	shll $24, %r11d
+	shll $16, %ecx
+	shll $8, %eax
+	orl %r11d, %ecx
+	orl %eax, %ecx
+	orl %esi, %ecx
 
 	#store output_img->data[pos]
 
@@ -713,9 +752,9 @@ imgproc_blur:
 	movl %r8d, %edx
 	imull %ebx, %edx
 	addl %r9d, %edx
+	movl %ecx, %eax       
 	movq 8(%r13), %rcx
-	#store resulting pixel into data position
-	movl %eax, (%rcx,%rdx,4)
+	movl %eax, (%rcx,%rdx,4)  
 
 	#increment 
 	incl %r9d
@@ -729,7 +768,7 @@ imgproc_blur:
 	
 .Lblur_done:
 	#free memory
-	addq $40, %rsp
+	addq $8, %rsp
 	popq %r15
 	popq %r14
 	popq %r13
@@ -1001,7 +1040,7 @@ imgproc_expand:
 		incl %r15d
 		jmp .Lloop_expand
 
-.Lloop_expand_end:
+.Lloop_expand_done:
 	popq  %rbx
 	popq  %r15
 	popq  %r14
