@@ -27,7 +27,6 @@ rowIndex:
  	*/
 
 	movl %edi, %eax
-	xorl  %edx, %edx
 	divl %esi
 	ret
 
@@ -42,7 +41,6 @@ columnIndex:
 	 *   %eax - column index (index % width)
 	 */
 	movl %edi, %eax
-	xorl  %edx, %edx
 	divl %esi
 	movl %edx, %eax
 	ret
@@ -61,13 +59,20 @@ getPixel:
 	* Returns:
 	*   %rax - pointer to input_img->data[row * input_img->width + col]
  	*/
-	movl %esi, %eax
-	movl %edx, %ecx
-	imull 0(%rdi)
-	addl %ecx, %eax
-	movq 8(%rdi), %rdx
-	movslq %eax, %rax
-	movl (%rdx, %rax, 4), %eax
+	pushq %r12
+	pushq %r13
+	pushq %r14
+
+	movl %esi, %r12d
+	movl %edx, %r13d
+	imull 0(%rdi), %r12d
+	addl %r13d, %r12d
+	movq 8(%rdi), %r14
+	movl (%r14, %r12, 4), %eax
+
+	popq %r14
+	popq %r13
+	popq %r12
 	ret
 
 .globl getRed
