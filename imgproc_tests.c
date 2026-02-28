@@ -227,8 +227,8 @@ void test_expand_basic( TestObjs *objs ) {
   XFORM_TEST( expand );
 }
 
-TODO: define additional test functions
-EDGE CASES FOR 0 OR MAX VALS
+// TODO: define additional test functions
+// EDGE CASES FOR 0 OR MAX VALS
 void test_row( TestObjs *objs ) {
   (void) objs;
   ASSERT( rowIndex(0, 1) == 0 );
