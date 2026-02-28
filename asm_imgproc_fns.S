@@ -283,7 +283,118 @@ imgproc_color_rot:
  */
 	.globl imgproc_blur
 imgproc_blur:
-	/* TODO: implement */
+	
+	#initalize variables
+	pushq %rbp
+	movq %rsp, %rbp
+	pushq %rbx
+	pushq %r12
+	pushq %r13
+	pushq %r14
+	pushq %r15
+	subq $40, %rsp
+
+	#use our variables for our inputs
+	movq %rdi, %r12 #r12 = input_img
+	movq %rsi, %r13 #r13 = output_img
+	movl %edx, %r14d #r14d = blur_dist
+
+	#x and y of our image
+	movl 4(%r12), %r15d
+	movl (%r12), %ebx
+
+	#intitalize for loop with i = 0 and j = 0
+	movl $0, %r8d                
+.Lblur_outer_row:
+	#until i >= the rows
+	cmpl %r15d, %r8d             
+	movl $0, %r9d
+
+.Lblur_outer_col:
+	#until j >= cols
+	cmpl %ebx, %r9d
+	jge .Lblur_next_row     
+
+	#pixelAverage struct
+	leaq -20(%rbp), %rdi
+	call pa_init
+	
+	# save i and j on stack
+	movl %r8d, -32(%rbp)
+	movl %r9d, -36(%rbp)
+
+	#set k = -blur_dist
+	movl %r14d, %r8d
+	negl %r8d
+
+.Lblur_inner_row:
+	#iterate k from -blur_dist to blur_dist
+	cmpl %r14d, %r8d
+	jg .Lblur_inner_done
+
+	#set l = -blur_dist
+	movl %r14d, %r9d
+	negl %r9d
+
+.Lblur_inner_col:
+	#iterate l from -blur_dist to blur_dist
+	cmpl %r14d, %r9d
+	jg .Lblur_next_k
+
+	#l and j save to stack
+	movl %r8d, -24(%rbp)
+	movl %r9d, -28(%rbp)
+
+	#input img
+	movq %r12, %rdi
+	#i from stack
+	movl -32(%rbp), %esi
+	#i + k
+	addl %r8d, %esi
+	#j from stakck
+	movl -36(%rbp), %edx
+	#j + l
+	addl %r9d, %edx
+
+	#pixel average
+	leaq -20(%rbp), %rcx
+
+	#update current pixel to blurred one
+	call pa_update_from_img
+
+	#get k and l from stack
+	movl -24(%rbp), %r8d
+	movl -28(%rbp), %r9d
+
+	#increment 
+	incl %r9d
+	jmp .Lblur_inner_col
+
+.Lblur_next_k:
+	# increment for next row(inner)
+	incl %r8d
+	jmp .Lblur_inner_row
+
+.Lblur_inner_done:
+	#i and j from stack
+	movl -32(%rbp), %r8d
+	movl -36(%rbp), %r9d
+
+	#get avg pixel val
+	leaq -20(%rbp), %rdi
+	call pa_avg_pixel
+	
+
+	# get pos = i * cols + j
+	movl %r8d, %edx
+	imull %ebx, %edx
+	addl %r9d, %edx
+
+	# get original alpha from input pixel
+	movq 8(%r12), %rcx
+	movl (%rcx,%rdx,4), %ecx
+	andl $0xFF, %ecx
+	
 	ret
 
 /*
