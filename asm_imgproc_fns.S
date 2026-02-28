@@ -65,6 +65,7 @@ getPixel:
 	imull 0(%rdi)
 	addl %edx, %eax
 	movq 8(%rdi), %rdx
+	movslq %eax, %rax
 	movl (%rdx, %eax, 4), %eax
 	ret
 
@@ -937,7 +938,7 @@ imgproc_expand:
 		movl -8(%rbp), %edx
 		sarl $1, %edx
 		call getPixel
-		movl %eax, %rbx # rbx = pixel_below
+		movl %eax, %ebx # rbx = pixel_below
 
 		movq %r12, %rdi
 		movl -8(%rbp), %eax
