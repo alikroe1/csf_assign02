@@ -56,8 +56,8 @@ getPixel:
 	*   %edx - column index
 	*   
 	* Register use:
-	*   %r12 - row index (local copy)
-	*	%r13 - column index (local copy)
+	*   %r12d - row index (local copy)
+	*	%r13d - column index (local copy)
 	*	%r14 - pointer to input_img (local copy)
 	*
 	* Returns:
@@ -67,12 +67,12 @@ getPixel:
 	pushq %r13
 	pushq %r14
 
-	movl %esi, %r12d
-	movl %edx, %r13d
-	imull 0(%rdi), %r12d
-	addl %r13d, %r12d
-	movq 8(%rdi), %r14
-	movl (%r14, %r12, 4), %eax
+	movl %esi, %r12d # r12d = row index
+	movl %edx, %r13d # r13d = column index
+	imull 0(%rdi), %r12d # r12d = row * input_img->width
+	addl %r13d, %r12d # r12d = row * input_img->width + col
+	movq 8(%rdi), %r14 # r14 = input_img->data
+	movl (%r14, %r12, 4), %eax # eax = return = input_img->data[row * input_img->width + col]
 
 	popq %r14
 	popq %r13
@@ -141,6 +141,20 @@ createPixel:
 
 .globl createAveragePixel
 createAveragePixel:
+	/*
+	 * Parameters:
+	 *   %edi - pixel one
+	 *   %esi - pixel two
+	 *
+	 * Register use:
+	 *   %r12d - red sum
+	 *   %r13d - green sum
+	 *   %r14d - blue sum
+	 *   %r15d - alpha sum
+	 *
+	 * Returns:
+	 *   %eax - average pixel
+	 */
 	pushq %r12
 	pushq %r13
 	pushq %r14
@@ -188,6 +202,22 @@ createAveragePixel:
 
 .globl quadAveragePixel
 quadAveragePixel:
+	/*
+	 * Parameters:
+	 *   %edi - pixel one
+	 *   %esi - pixel two
+	 *	 %edx - pixel three
+	 *	 %ecx - pixel four
+	 *
+	 * Register use:
+	 *   %r12d - red sum
+	 *   %r13d - green sum
+	 *   %r14d - blue sum
+	 *   %r15d - alpha sum
+	 *
+	 * Returns:
+	 *   %eax - average pixel
+	 */
 	pushq %r12
 	pushq %r13
 	pushq %r14
@@ -756,7 +786,7 @@ imgproc_expand:
 	 *   %r12 - iterator (i)
 	 *   %r13 - row
 	 *   %r14d - column
-	 *   %r15d - output_img pointer (local copy)
+	 *   %r15 - output_img pointer (local copy)
 	 *   %rbx  - input_img pointer (local copy)
 	 *
 	 * Memory use:
