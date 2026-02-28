@@ -281,6 +281,22 @@ imgproc_color_rot:
  *                   component averages used to determine the color
  *                   components of the output pixel
  */
+
+	/*
+	 *Register use:
+	 *%r12 - pointer to input image struct
+	 *%r13 - pointer to output image struct
+	 *%r14d - blur_dist
+	 *%r15d - rows (height)
+	 *%ebx - cols (width)
+	 *%r8d - i / k
+	 *%r9d - j / l
+	 *-20(%rbp) - PixelAverager struct
+	 *-24(%rbp) - k
+	 *-28(%rbp) - l
+	 *-32(%rbp) - i
+	 *-36(%rbp) - j
+	 */
 	.globl imgproc_blur
 imgproc_blur:
 	
@@ -305,15 +321,16 @@ imgproc_blur:
 
 	#intitalize for loop with i = 0 and j = 0
 	movl $0, %r8d                
-.Lblur_outer_row:
+.Lfor_loop1:
 	#until i >= the rows
-	cmpl %r15d, %r8d             
+	cmpl %r15d, %r8d      
+	jge .Lblur_done        
 	movl $0, %r9d
 
-.Lblur_outer_col:
+.Lfor_loop2:
 	#until j >= cols
 	cmpl %ebx, %r9d
-	jge .Lblur_next_row     
+	jge .Lfor_loop1_increment    
 
 	#pixelAverage struct
 	leaq -20(%rbp), %rdi
@@ -327,19 +344,19 @@ imgproc_blur:
 	movl %r14d, %r8d
 	negl %r8d
 
-.Lblur_inner_row:
+.Lfor_loop3:
 	#iterate k from -blur_dist to blur_dist
 	cmpl %r14d, %r8d
-	jg .Lblur_inner_done
+	jg .Lfor_loop3_done
 
 	#set l = -blur_dist
 	movl %r14d, %r9d
 	negl %r9d
 
-.Lblur_inner_col:
+.Lfor_loop4:
 	#iterate l from -blur_dist to blur_dist
 	cmpl %r14d, %r9d
-	jg .Lblur_next_k
+	jg .Lfor_loop3_increment
 
 	#l and j save to stack
 	movl %r8d, -24(%rbp)
@@ -368,14 +385,14 @@ imgproc_blur:
 
 	#increment 
 	incl %r9d
-	jmp .Lblur_inner_col
+	jmp .Lfor_loop4
 
-.Lblur_next_k:
+.Lfor_loop3_increment:
 	# increment for next row(inner)
 	incl %r8d
-	jmp .Lblur_inner_row
+	jmp .Lfor_loop3
 
-.Lblur_inner_done:
+.Lfor_loop3_done:
 	#i and j from stack
 	movl -32(%rbp), %r8d
 	movl -36(%rbp), %r9d
@@ -385,15 +402,51 @@ imgproc_blur:
 	call pa_avg_pixel
 	
 
-	# get pos = i * cols + j
+	#get pos = i * cols + j
 	movl %r8d, %edx
 	imull %ebx, %edx
 	addl %r9d, %edx
 
-	# get original alpha from input pixel
+	#get and replace alpha for new blurred pixel
 	movq 8(%r12), %rcx
 	movl (%rcx,%rdx,4), %ecx
+
+	#get OG alpha
 	andl $0xFF, %ecx
+
+	#replace blurred alpha with OG alpha
+	andl $0xFFFFFF00, %eax
+	orl %ecx, %eax
+
+	#store output_img->data[pos]
+
+	#get i * cols + j and store in pos
+	movl %r8d, %edx
+	imull %ebx, %edx
+	addl %r9d, %edx
+	movq 8(%r13), %rcx
+	#store resulting pixel into data position
+	movl %eax, (%rcx,%rdx,4)
+
+	#increment 
+	incl %r9d
+	jmp .Lfor_loop2
+
+.Lfor_loop1_increment:
+	# increment for next outer row
+	incl %r8d
+	jmp .Lfor_loop1
+
+	
+.Lblur_done:
+	#free memory
+	addq $40, %rsp
+	popq %r15
+	popq %r14
+	popq %r13
+	popq %r12
+	popq %rbx
+	popq %rbp
 	
 	ret
 
