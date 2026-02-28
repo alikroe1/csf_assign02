@@ -27,6 +27,7 @@ rowIndex:
  	*/
 
 	movl %edi, %eax
+	xorl %edx, %edx
 	divl %esi
 	ret
 
@@ -41,6 +42,7 @@ columnIndex:
 	 *   %eax - column index (index % width)
 	 */
 	movl %edi, %eax
+	xorl %edx, %edx
 	divl %esi
 	movl %edx, %eax
 	ret
@@ -54,10 +56,12 @@ getPixel:
 	*   %edx - column index
 	*   
 	* Register use:
-	*   %rax - get index of pixel
+	*   %r12 - row index (local copy)
+	*	%r13 - column index (local copy)
+	*	%r14 - pointer to input_img (local copy)
 	*
 	* Returns:
-	*   %rax - pointer to input_img->data[row * input_img->width + col]
+	*   %eax - pixel at index row * input_img->width + col
  	*/
 	pushq %r12
 	pushq %r13
@@ -159,7 +163,7 @@ createAveragePixel:
 	call getGreen
 	addl %eax, %r13d
 	call getBlue
-	addl %eax, %r12d
+	addl %eax, %r14d
 	call getAlpha
 	addl %eax, %r15d
 
@@ -206,7 +210,7 @@ quadAveragePixel:
 	call getGreen
 	addl %eax, %r13d
 	call getBlue
-	addl %eax, %r12d
+	addl %eax, %r14d
 	call getAlpha
 	addl %eax, %r15d
 
@@ -217,7 +221,7 @@ quadAveragePixel:
 	call getGreen
 	addl %eax, %r13d
 	call getBlue
-	addl %eax, %r12d
+	addl %eax, %r14d
 	call getAlpha
 	addl %eax, %r15d
 
@@ -228,7 +232,7 @@ quadAveragePixel:
 	call getGreen
 	addl %eax, %r13d
 	call getBlue
-	addl %eax, %r12d
+	addl %eax, %r14d
 	call getAlpha
 	addl %eax, %r15d
 
@@ -749,14 +753,19 @@ imgproc_blur:
 imgproc_expand:
 	/*
 	 * Register use:
-	 *   %r12 - pointer to input Image
-	 *   %r13 - pointer to output Image
-	 *   %r14d - output row (i)
-	 *   %r15d - output col (j)
-	 *   %ebx  - current output pixel value
+	 *   %r12 - iterator (i)
+	 *   %r13 - row
+	 *   %r14d - column
+	 *   %r15d - output_img pointer (local copy)
+	 *   %rbx  - input_img pointer (local copy)
 	 *
 	 * Memory use:
-	 *   -20(%rbp) - PixelAverager
+	 *   -1(%rbp) - right_edge
+	 * 	 -2(%rbp) - bottom_edge
+	 *	 -8(%rbp) - pixel_original
+	 * 	 -12(%rbp) - pixel_right
+	 * 	 -16(%rbp) - pixel_bottom
+	 * 	 -20(%rbp) - pixel_diagonal
 	 */
 
 	pushq %rbp
