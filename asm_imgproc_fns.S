@@ -835,7 +835,7 @@ imgproc_expand:
 		movl %r15d, %edi
 		movl (%r13), %esi
 		call columnIndex
-		movl %eax, -8(%rbp) % -8(%rbp) = col
+		movl %eax, -8(%rbp)                      
 
 		movl -8(%rbp), %edx
 		sarl $1, %edx
@@ -953,7 +953,7 @@ imgproc_expand:
 
 		movl %r8d, %edi
 		movl %r11d, %esi
-		movl %rbx, %edx
+		movl %ebx, %edx
 		movl %eax, %ecx
 		call quadAveragePixel
 		movq 8(%r13), %rdx
