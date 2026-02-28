@@ -842,6 +842,7 @@ imgproc_expand:
 	 *
 	 * Memory:
 	 *   -8(%rbp) - col
+	 *	 -16(%rbp) - pixel_below
 	 */
 
 	pushq %rbp
@@ -851,7 +852,7 @@ imgproc_expand:
 	pushq %r14
 	pushq %r15
 	pushq %rbx
-	subq  $8, %rsp
+	subq  $16, %rsp
 
 	movq %rdi, %r12 # r12 = input_img
 	movq %rsi, %r13 # r13 = output_img
@@ -977,7 +978,7 @@ imgproc_expand:
 		movl -8(%rbp), %edx
 		sarl $1, %edx
 		call getPixel
-		movl %eax, %ebx # rbx = pixel_below
+		movl %eax, -16(%rbp) # -16(%rbp) = pixel_below
 
 		movq %r12, %rdi
 		movl -8(%rbp), %eax
@@ -1041,6 +1042,7 @@ imgproc_expand:
 		jmp .Lloop_expand
 
 .Lloop_expand_done:
+	addq  $16, %rsp
 	popq  %rbx
 	popq  %r15
 	popq  %r14
