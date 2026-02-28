@@ -15,7 +15,28 @@
  * them visible to the test code.
  */
 
+/* Computes row number for given pixel in photo
+ * @param index index of pixel to calculate row number for
+ * @param width width of image
+ * @return row number of pixel
+ */
+.globl rowIndex
+getIndex:
+	/*
+ 	* Parameters:
+	*   %edi - index of pixel
+	*   %esi - width of image
+	*   
+	* Register use:
+	*   %eax - division calculation
+	*
+	* Returns:
+	*   %eax - row index
+	*   %edx - column index
+ 	*/
 
+	movl %edi, %eax
+	divl %esi
 
 /*
  * Definitions of image transformation functions
@@ -295,7 +316,45 @@ imgproc_blur:
  */
 	.globl imgproc_expand
 imgproc_expand:
-	/* TODO: implement */
+	/*
+	* 
+ 	* Parameters:
+	*   %rdi - pointer to input Image
+	*   %rsi - pointer to output Image
+	*   
+	* Register use:
+ 	*   %ecx - pixel iterator (i)
+ 	*   %r13 - output pixel column (j)
+ 	*   %r14d - output image pixel index (out_w * i + j)
+ 	*   %r15d - input image pixel index (input_image->width * i * y_fac + j * x_fac)
+ 	*   %rbx - intermediary arithmetic value
+	*   %eax - input_img pixel
+ 	*
+ 	*/
+
+	pushq %rcx
+
+	movl $0, %ecx # ecx = i = 0
+	.Lloop_expand:
+		movl (%rsi), %r8
+		mull 4(%rsi), %r8 # %r8 = output_img->width * output_img->height
+		cmpl %ecx, %r8 # %r8 ? %ecx
+		jge .Lloop_expand_end
+
+		pushq %rcx
+		pushq %rdx
+		call getIndex
+		movl %r8, %rcx # r8 = row
+		movl %r9, %rdx # r9 = column
+		popq %rdx
+		popq %rcx
+
+		
+
+	.Lloop_expand_end:
+
+		
+
 	ret
 
 /*
