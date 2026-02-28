@@ -6,6 +6,15 @@
 
 #include "image.h" // for struct Image and related functions
 
+struct PixelAverager {
+  uint32_t r, g, b, a, count;
+};
+
+void pa_init( struct PixelAverager *pa );
+void pa_update( struct PixelAverager *pa, uint32_t pixel );
+void pa_update_from_img( struct Image *img, int32_t row, int32_t col, struct PixelAverager *pa );
+uint32_t pa_avg_pixel( struct PixelAverager *pa );
+
 //! Transform the entire image by shrinking it down both 
 //! horizontally and vertically (by potentially different
 //! factors). This is equivalent to sampling the orignal image

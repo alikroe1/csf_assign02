@@ -130,200 +130,146 @@ createPixel:
 	orl  %ecx, %eax
 	ret
 
-.globl createAveragePixel
-createAveragePixel:
-	/*
-	 * Parameters:
-	 *   %edi - pixel 1
-	 *   %esi - pixel 2
-	 *
-	 * Register use:
-	 *   %r12d - pixel 1 (local copy)
-	 *   %r13d - pixel 2 (local copy)
-	 *   %r14d - avg_red
-	 *   %r15d - avg_green
-	 *   %ebx  - avg_blue
-	 *   %eax  - intermediate
-	 *   %ecx  - intermediate
-	 *
-	 * Returns:
-	 *   %eax - average pixel
-	 */
-	pushq %r12
-	pushq %r13
-	pushq %r14
-	pushq %r15
-	pushq %rbx
+	.globl pa_init
+pa_init:
+	pushq %rbp
+	movq  %rsp, %rbp
 
-	movl %edi, %r12d
-	movl %esi, %r13d
+	movl $0, (%rdi)      # pa->r = 0
+	movl $0, 4(%rdi)     # pa->g = 0
+	movl $0, 8(%rdi)     # pa->b = 0
+	movl $0, 12(%rdi)    # pa->a = 0
+	movl $0, 16(%rdi)    # pa->count = 0
 
-	#avg_red
-	movl %r12d, %edi
-	call getRed
-	movl %eax, %ecx
-	movl %r13d, %edi
-	call getRed
-	addl %ecx, %eax
-	shrl $1, %eax
-	movl %eax, %r14d
-	
-	#avg_green
-	movl %r12d, %edi
-	call getGreen
-	movl %eax, %ecx
-	movl %r13d, %edi
-	call getGreen
-	addl %ecx, %eax
-	shrl $1, %eax
-	movl %eax, %r15d
-
-	#avg_blue
-	movl %r12d, %edi
-	call getBlue
-	movl %eax, %ecx
-	movl %r13d, %edi
-	call getBlue
-	addl %ecx, %eax
-	shrl $1, %eax
-	movl %eax, %ebx
-
-	#avg_alpha
-	movl %r12d, %edi
-	call getAlpha
-	movl %eax, %ecx
-	movl %r13d, %edi
-	call getAlpha
-	addl %ecx, %eax
-	shrl $1, %eax
-
-	#createPixel
-	movl %r14d, %edi
-	movl %r15d, %esi
-	movl %ebx, %edx
-	movl %eax, %ecx
-	call createPixel
-
-	popq %rbx
-	popq %r15
-	popq %r14
-	popq %r13
-	popq %r12
+	popq %rbp
 	ret
 
-.globl quadAveragePixel
-quadAveragePixel:
+
+	.globl pa_update
+pa_update:
+	/*
+	 * pa_update - adds a pixel's color components to the PixelAverager
+	 *
+	 * Parameters:
+	 *   %rdi - pointer to PixelAverager
+	 *   %esi - pixel value
+	 */
+	pushq %rbp
+	movq  %rsp, %rbp
+
+	movl %esi, %eax
+	shrl $24, %eax           # eax = red
+	addl %eax, (%rdi)        # pa->r += red
+
+	movl %esi, %eax
+	shrl $16, %eax
+	andl $0xFF, %eax         # eax = green
+	addl %eax, 4(%rdi)       # pa->g += green
+
+	movl %esi, %eax
+	shrl $8, %eax
+	andl $0xFF, %eax         # eax = blue
+	addl %eax, 8(%rdi)       # pa->b += blue
+
+	movl %esi, %eax
+	andl $0xFF, %eax         # eax = alpha
+	addl %eax, 12(%rdi)      # pa->a += alpha
+
+	incl 16(%rdi)            # pa->count++
+
+	popq %rbp
+	ret
+
+	.globl pa_update_from_img
+pa_update_from_img:
 	/*
 	 * Parameters:
-	 *   %edi - pixel 1
-	 *   %esi - pixel 2
-	 *   %edx - pixel 3
-	 *   %ecx - pixel 4
-	 *
-	 * Register use:
-	 *   %r12d - pixel 1 (local copy)
-	 *   %r13d - pixel 2 (local copy)
-	 *   %r14d - pixel 3 (local copy)
-	 *   %r15d - pixel 4 (local copy)
-	 *   %ebx  - avg_blue
-	 *   %eax  - intermediate
-	 *   %ecx  - pixel sum
-	 *   -8(%rbp)  - avg_red
-	 *   -12(%rbp) - avg_blue
-	 *
-	 * Returns:
-	 *   %eax - average pixel
+	 *   %rdi - pointer to Image
+	 *   %esi - row
+	 *   %edx - col
+	 *   %rcx - pointer to PixelAverager
 	 */
-	
 	pushq %rbp
 	movq  %rsp, %rbp
 	pushq %r12
 	pushq %r13
 	pushq %r14
 	pushq %r15
-	pushq %rbx
-	subq  $8, %rsp
 
-	# store local copies
-	movl %edi, %r12d
-	movl %esi, %r13d
-	movl %edx, %r14d
-	movl %ecx, %r15d
+	movq %rdi, %r12          # r12 = img
+	movl %esi, %r13d         # r13d = row
+	movl %edx, %r14d         # r14d = col
+	movq %rcx, %r15          # r15 = &pa
 
-	# avg_red
-	movl %r12d, %edi
-	call getRed
-	movl %eax, %ecx
-	movl %r13d, %edi
-	call getRed
-	addl %eax, %ecx
-	movl %r14d, %edi
-	call getRed
-	addl %eax, %ecx
-	movl %r15d, %edi
-	call getRed
-	addl %eax, %ecx
-	shrl $2, %ecx
-	movl %ecx, -8(%rbp)
+	cmpl $0, %r13d           # row < 0?
+	jl   .Limg_oob
+	cmpl 4(%r12), %r13d      # row >= img->height?
+	jge  .Limg_oob
+	cmpl $0, %r14d           # col < 0?
+	jl   .Limg_oob
+	cmpl (%r12), %r14d       # col >= img->width?
+	jge  .Limg_oob
 
-	# avg_green
-	movl %r12d, %edi
-	call getGreen
-	movl %eax, %ecx
-	movl %r13d, %edi
-	call getGreen
-	addl %eax, %ecx
-	movl %r14d, %edi
-	call getGreen
-	addl %eax, %ecx
-	movl %r15d, %edi
-	call getGreen
-	addl %eax, %ecx
-	shrl $2, %ecx
-	movl %ecx, -12(%rbp)
+	movl (%r12), %eax        # eax = img->width
+	imull %eax, %r13d        # r13d = row * width
+	addl %r14d, %r13d        # r13d = row * width + col
+	movq 8(%r12), %rax       # rax = img->data
+	movl (%rax, %r13, 4), %esi  # esi = data[row*width+col]
 
-	# avg_blue
-	movl %r12d, %edi
-	call getBlue
-	movl %eax, %ecx
-	movl %r13d, %edi
-	call getBlue
-	addl %eax, %ecx
-	movl %r14d, %edi
-	call getBlue
-	addl %eax, %ecx
-	movl %r15d, %edi
-	call getBlue
-	addl %eax, %ecx
-	shrl $2, %ecx
-	movl %ecx, %ebx
+	movq %r15, %rdi
+	call pa_update
 
-	# avg_alpha
-	movl %r12d, %edi
-	call getAlpha
-	movl %eax, %ecx
-	movl %r13d, %edi
-	call getAlpha
-	addl %eax, %ecx
-	movl %r14d, %edi
-	call getAlpha
-	addl %eax, %ecx
-	movl %r15d, %edi
-	call getAlpha
-	addl %eax, %ecx
-	shrl $2, %ecx
-
-	# create pixel
-	movl -8(%rbp), %edi
-	movl -12(%rbp), %esi
-	movl %ebx, %edx
-	call createPixel
-
-	addq  $8, %rsp
-	popq %rbx
+.Limg_oob:                   # out of bounds, do nothing
 	popq %r15
 	popq %r14
 	popq %r13
+	popq %r12
+	popq %rbp
+	ret
+
+	.globl pa_avg_pixel
+pa_avg_pixel:
+	/*
+	 * Parameters:
+	 *   %rdi - pointer to PixelAverager
+	 *
+	 * Returns:
+	 *   averaged pixel in %eax
+	 */
+	pushq %rbp
+	movq  %rsp, %rbp
+	pushq %r12
+
+	movq %rdi, %r12          # r12 = &pa
+
+	movl 16(%r12), %ecx      # ecx = pa->count
+
+	movl (%r12), %eax
+	xorl %edx, %edx
+	divl %ecx                # eax = pa->r / pa->count
+	movl %eax, %r8d          # r8d = avg red
+
+	movl 4(%r12), %eax
+	xorl %edx, %edx
+	divl %ecx                # eax = pa->g / pa->count
+	movl %eax, %r9d          # r9d = avg green
+
+	movl 8(%r12), %eax
+	xorl %edx, %edx
+	divl %ecx                # eax = pa->b / pa->count
+	movl %eax, %r10d         # r10d = avg blue
+
+	movl 12(%r12), %eax
+	xorl %edx, %edx
+	divl %ecx                # eax = pa->a / pa->count
+	movl %eax, %r11d         # r11d = avg alpha
+
+	movl %r8d, %edi
+	movl %r9d, %esi
+	movl %r10d, %edx
+	movl %r11d, %ecx
+	call createPixel         # eax = final averaged pixel
+
 	popq %r12
 	popq %rbp
 	ret
@@ -827,20 +773,17 @@ imgproc_expand:
 	 * Register use:
 	 *   %r12 - pointer to input Image
 	 *   %r13 - pointer to output Image
-	 *   %r14d - total pixels in output image
-	 *   %r15d - i (current pixel index)
-	 *   %ebx  - current row
+	 *   %r14d - output row (i)
+	 *   %r15d - output col (j)
+	 *   %ebx  - current output pixel value
 	 *
 	 * Memory use:
-	 *   -4(%rbp)  - col
-	 *   -8(%rbp)  - pixel_original
-	 *   -12(%rbp) - pixel_right
-	 *   -16(%rbp) - pixel_below
+	 *   -20(%rbp) - PixelAverager
 	 */
 
 	pushq %rbp
 	movq  %rsp, %rbp
-	subq  $16, %rsp
+	subq  $24, %rsp
 	pushq %r12
 	pushq %r13
 	pushq %r14
@@ -850,213 +793,122 @@ imgproc_expand:
 	movq %rdi, %r12          # r12 = input_img
 	movq %rsi, %r13          # r13 = output_img
 
+	movl $0, %r14d           # r14d = i = 0
+
+.Lrow_loop:
+	movl 4(%r13), %eax       # eax = output_img->height
+	cmpl %eax, %r14d         # i ? output height
+	jge  .Lall_done
+
+	movl $0, %r15d           # r15d = j = 0
+
+.Lcol_loop:
+	movl (%r13), %eax        # eax = output_img->width
+	cmpl %eax, %r15d         # j ? output width
+	jge  .Lnext_row
+
+	leaq -20(%rbp), %rdi     # store pa struct in memory
+	call pa_init
+
+	movl %r14d, %eax
+	andl $1, %eax            # eax = i % 2
+	movl %r15d, %ecx
+	andl $1, %ecx            # ecx = j % 2
+
+	movl %r14d, %r8d
+	sarl $1, %r8d            # r8d = i/2
+	movl %r15d, %r9d
+	sarl $1, %r9d            # r9d = j/2
+
+	# add top_left pixel
+	movq %r12, %rdi
+	movl %r8d, %esi
+	movl %r9d, %edx
+	leaq -20(%rbp), %rcx
+	call pa_update_from_img
+
+	# handle odd column
+	movl %r15d, %ecx
+	andl $1, %ecx            # ecx = j % 2
+	cmpl $0, %ecx
+	je .Lcheck_odd_row
+
+	movl %r14d, %r8d
+	sarl $1, %r8d            # r8d = i/2
+	movl %r15d, %r9d
+	sarl $1, %r9d            # r9d = j/2
+
+	movq %r12, %rdi
+	movl %r8d, %esi
+	movl %r9d, %edx
+	addl $1, %edx 
+	leaq -20(%rbp), %rcx
+	call pa_update_from_img
+
+.Lcheck_odd_row:
+	movl %r14d, %eax
+	andl $1, %eax            # eax = i % 2
+	movl %r15d, %ecx
+	andl $1, %ecx            # ecx = j % 2
+
+	# handle odd row
+	cmpl $0, %eax
+	je   .Lstore_result
+
+	movl %r14d, %r8d
+	sarl $1, %r8d            # r8d = i/2
+	movl %r15d, %r9d
+	sarl $1, %r9d            # r9d = j/2
+
+	movq %r12, %rdi
+	movl %r8d, %esi
+	addl $1, %esi
+	movl %r9d, %edx
+	leaq -20(%rbp), %rcx
+	call pa_update_from_img
+
+	cmpl $0, %ecx            # j % 2 ? 0
+	je .Lstore_result
+
+	movl %r14d, %r8d
+	sarl $1, %r8d            # r8d = i/2
+	movl %r15d, %r9d
+	sarl $1, %r9d            # r9d = j/2
+
+	movq %r12, %rdi
+	movl %r8d, %esi
+	addl $1, %esi
+	movl %r9d, %edx
+	addl $1, %edx
+	leaq -20(%rbp), %rcx
+	call pa_update_from_img
+
+.Lstore_result:
+	leaq -20(%rbp), %rdi
+	call pa_avg_pixel
+	movl %eax, %ebx
+
 	movl (%r13), %eax
-	imull 4(%r13), %eax
-	movl %eax, %r14d         # r14d = output width * height
+	movl %r14d, %ecx
+	imull %eax, %ecx 
+	addl %r15d, %ecx
 
-	movl $0, %r15d           # i = 0
+	movq 8(%r13), %rax       # rax = output_img->data
+	movl %ebx, (%rax, %rcx, 4) # data[i*width+j] = result pixel
 
-.Lloop_expand:
-	cmpl %r14d, %r15d        # i ? total pixels
-	jge .Lloop_expand_done
+	incl %r15d               # j++
+	jmp  .Lcol_loop
 
-	movl %r15d, %edi
-	movl (%r13), %esi
-	call rowIndex
-	movl %eax, %ebx          # ebx = row
+.Lnext_row:
+	incl %r14d               # i++
+	jmp  .Lrow_loop
 
-	movl %r15d, %edi
-	movl (%r13), %esi
-	call columnIndex
-	movl %eax, -4(%rbp)      # -4(%rbp) = col
-
-	# get pixel_original at (row/2, col/2)
-	movq %r12, %rdi
-	movl %ebx, %esi
-	sarl $1, %esi            # esi = row/2
-	movl -4(%rbp), %edx
-	sarl $1, %edx            # edx = col/2
-	call getPixel
-	movl %eax, -8(%rbp)      # -8(%rbp) = pixel_original
-
-	# check if row is even or odd
-	movl %ebx, %eax
-	andl $1, %eax            # eax = row % 2
-	cmpl $0, %eax
-	jne .Lodd_row
-
-	# even row: check if col is even or odd
-	movl -4(%rbp), %eax
-	andl $1, %eax            # eax = col % 2
-	cmpl $0, %eax
-	jne .Leven_row_odd_col
-
-	# even row, even col: just copy original pixel
-	movq 8(%r13), %rdx
-	movl -8(%rbp), %eax
-	movl %eax, (%rdx, %r15, 4)
-	jmp .Lcontinue
-
-.Leven_row_odd_col:
-	# even row, odd col: average (row/2, col/2) and (row/2, col/2+1)
-	# check right edge
-	movl -4(%rbp), %eax
-	sarl $1, %eax
-	addl $1, %eax            # eax = col/2 + 1
-	cmpl (%r12), %eax        # col/2+1 >= input width?
-	jge .Luse_original
-
-	movq %r12, %rdi
-	movl %ebx, %esi
-	sarl $1, %esi            # esi = row/2
-	movl -4(%rbp), %edx
-	sarl $1, %edx
-	addl $1, %edx            # edx = col/2 + 1
-	call getPixel            # eax = pixel_right
-
-	movl -8(%rbp), %edi      # arg1 = pixel_original
-	movl %eax, %esi          # arg2 = pixel_right
-	call createAveragePixel
-	movq 8(%r13), %rdx
-	movl %eax, (%rdx, %r15, 4)
-	jmp .Lcontinue
-
-.Lodd_row:
-	# odd row: check if col is even or odd
-	movl -4(%rbp), %eax
-	andl $1, %eax            # eax = col % 2
-	cmpl $0, %eax
-	jne .Lodd_row_odd_col
-
-	# odd row, even col: average (row/2, col/2) and (row/2+1, col/2)
-	# check bottom edge
-	movl %ebx, %eax
-	sarl $1, %eax
-	addl $1, %eax            # eax = row/2 + 1
-	cmpl 4(%r12), %eax       # row/2+1 >= input height?
-	jge .Luse_original
-
-	movq %r12, %rdi
-	movl %ebx, %esi
-	sarl $1, %esi
-	addl $1, %esi            # esi = row/2 + 1
-	movl -4(%rbp), %edx
-	sarl $1, %edx            # edx = col/2
-	call getPixel            # eax = pixel_below
-
-	movl -8(%rbp), %edi      # arg1 = pixel_original
-	movl %eax, %esi          # arg2 = pixel_below
-	call createAveragePixel
-	movq 8(%r13), %rdx
-	movl %eax, (%rdx, %r15, 4)
-	jmp .Lcontinue
-
-.Lodd_row_odd_col:
-	# odd row, odd col: check edges and average up to 4 pixels
-	movl %ebx, %eax
-	sarl $1, %eax
-	addl $1, %eax
-	cmpl 4(%r12), %eax       # row/2+1 >= input height? (bottom edge)
-	jge .Lodd_odd_bottom_edge
-
-	movl -4(%rbp), %eax
-	sarl $1, %eax
-	addl $1, %eax
-	cmpl (%r12), %eax        # col/2+1 >= input width? (right edge)
-	jge .Lodd_odd_right_edge
-
-	# no edges: average all 4 pixels
-	movq %r12, %rdi
-	movl %ebx, %esi
-	sarl $1, %esi            # esi = row/2
-	movl -4(%rbp), %edx
-	sarl $1, %edx
-	addl $1, %edx            # edx = col/2 + 1
-	call getPixel
-	movl %eax, -12(%rbp)     # -12(%rbp) = pixel_right
-
-	movq %r12, %rdi
-	movl %ebx, %esi
-	sarl $1, %esi
-	addl $1, %esi            # esi = row/2 + 1
-	movl -4(%rbp), %edx
-	sarl $1, %edx            # edx = col/2
-	call getPixel
-	movl %eax, -16(%rbp)     # -16(%rbp) = pixel_below
-
-	movq %r12, %rdi
-	movl %ebx, %esi
-	sarl $1, %esi
-	addl $1, %esi            # esi = row/2 + 1
-	movl -4(%rbp), %edx
-	sarl $1, %edx
-	addl $1, %edx            # edx = col/2 + 1
-	call getPixel            # eax = pixel_diagonal
-
-	movl -8(%rbp), %edi      # arg1 = pixel_original
-	movl -12(%rbp), %esi     # arg2 = pixel_right
-	movl -16(%rbp), %edx     # arg3 = pixel_below
-	movl %eax, %ecx          # arg4 = pixel_diagonal
-	call quadAveragePixel
-	movq 8(%r13), %rdx
-	movl %eax, (%rdx, %r15, 4)
-	jmp .Lcontinue
-
-.Lodd_odd_right_edge:
-	# right edge only: average (row/2, col/2) and (row/2+1, col/2)
-	movq %r12, %rdi
-	movl %ebx, %esi
-	sarl $1, %esi
-	addl $1, %esi            # esi = row/2 + 1
-	movl -4(%rbp), %edx
-	sarl $1, %edx            # edx = col/2
-	call getPixel            # eax = pixel_below
-
-	movl -8(%rbp), %edi      # arg1 = pixel_original
-	movl %eax, %esi          # arg2 = pixel_below
-	call createAveragePixel
-	movq 8(%r13), %rdx
-	movl %eax, (%rdx, %r15, 4)
-	jmp .Lcontinue
-
-.Lodd_odd_bottom_edge:
-	# bottom edge only: average (row/2, col/2) and (row/2, col/2+1)
-	movl -4(%rbp), %eax
-	sarl $1, %eax
-	addl $1, %eax
-	cmpl (%r12), %eax        # also right edge?
-	jge .Luse_original
-
-	movq %r12, %rdi
-	movl %ebx, %esi
-	sarl $1, %esi            # esi = row/2
-	movl -4(%rbp), %edx
-	sarl $1, %edx
-	addl $1, %edx            # edx = col/2 + 1
-	call getPixel            # eax = pixel_right
-
-	movl -8(%rbp), %edi      # arg1 = pixel_original
-	movl %eax, %esi          # arg2 = pixel_right
-	call createAveragePixel
-	movq 8(%r13), %rdx
-	movl %eax, (%rdx, %r15, 4)
-	jmp .Lcontinue
-
-.Luse_original:
-	movq 8(%r13), %rdx
-	movl -8(%rbp), %eax
-	movl %eax, (%rdx, %r15, 4)  # output_img->data[i] = pixel_original
-
-.Lcontinue:
-	incl %r15d               # i++
-	jmp .Lloop_expand
-
-.Lloop_expand_done:
+.Lall_done:
 	popq %rbx
 	popq %r15
 	popq %r14
 	popq %r13
 	popq %r12
-	addq $16, %rsp
+	addq $24, %rsp
 	popq %rbp
 	ret

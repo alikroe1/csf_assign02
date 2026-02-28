@@ -95,6 +95,31 @@ uint32_t quadAveragePixel(uint32_t pixel_one, uint32_t pixel_two, uint32_t pixel
   return createPixel(avg_red, avg_green, avg_blue, avg_alpha);
 }
 
+void pa_init( struct PixelAverager *pa ) {
+  pa->r = 0;
+  pa->g = 0;
+  pa->b = 0;
+  pa->a = 0;
+  pa->count = 0;
+}
+
+void pa_update( struct PixelAverager *pa, uint32_t pixel ) {
+  pa->r += getRed(pixel);
+  pa->g += getGreen(pixel);
+  pa->b += getBlue(pixel);
+  pa->a += getAlpha(pixel);
+  pa->count++;
+}
+
+void pa_update_from_img( struct Image *img, int32_t row, int32_t col, struct PixelAverager *pa ) {
+  if (row < 0 || row >= img->height || col < 0 || col >= img->width) return;
+  pa_update(pa, img->data[row * img->width + col]);
+}
+
+uint32_t pa_avg_pixel( struct PixelAverager *pa ) {
+  return createPixel(pa->r / pa->count, pa->g / pa->count, pa->b / pa->count, pa->a / pa->count);
+}
+
 //! Transform the entire image by shrinking it down both 
 //! horizontally and vertically (by potentially different
 //! factors). This is equivalent to sampling the orignal image
