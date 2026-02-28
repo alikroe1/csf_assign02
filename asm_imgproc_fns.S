@@ -15,12 +15,13 @@
  * them visible to the test code.
  */
 
-/* Computes row number for given pixel in photo
+/* Computes row and column number for given pixel in photo
  * @param index index of pixel to calculate row number for
  * @param width width of image
  * @return row number of pixel
+ * @return column number of pixel
  */
-.globl rowIndex
+.globl getIndex
 getIndex:
 	/*
  	* Parameters:
@@ -37,6 +38,40 @@ getIndex:
 
 	movl %edi, %eax
 	divl %esi
+
+.globl getPixel
+getPixel:
+	/*
+ 	* Parameters:
+	*   %rdi - pointer to input_img
+	*   %esi - row index
+	*   %edx - column index
+	*   
+	* Register use:
+	*   %rax - get index of pixel
+	*
+	* Returns:
+	*   %rax - pointer to input_img->data[row * input_img->width + col]
+ 	*/
+	movl %esi, %eax
+	imull 0(%rdi)
+	addl %edx, %eax
+	movq 8(%rdi), %rdx
+	movl (%rdx, %eax, 4), %eax
+
+.globl createAveragePixel
+createAveragePixel:
+	/*
+ 	* Parameters:
+	*   %rdi - pointer to first pixel
+	*   %rsi - pointer to second pixel
+	*   
+	* Register use:
+	*   %rax - get index of pixel
+	*
+	* Returns:
+	*   %rax - pointer to input_img->data[row * input_img->width + col]
+ 	*/
 
 /*
  * Definitions of image transformation functions
@@ -349,18 +384,100 @@ imgproc_expand:
 
 	movl $0, %ecx # ecx = i = 0
 	.Lloop_expand:
-		movl (%rsi), %r8
-		mull 4(%rsi), %r8 # %r8 = output_img->width * output_img->height
-		cmpl %ecx, %r8 # %r8 ? %ecx
+		movl (%rsi), %r8d
+		mull 4(%rsi), %r8d # %r8 = output_img->width * output_img->height
+		cmpl %ecx, %r8d # %r8 ? %ecx
 		jge .Lloop_expand_end
 
-		pushq %rcx
-		pushq %rdx
+		pushq %rdi
+		pushq %rsi
+		movl %ecx, %edi
+		movl (%rsi), %esi
 		call getIndex
-		movl %r8, %rcx # r8 = row
-		movl %r9, %rdx # r9 = column
-		popq %rdx
-		popq %rcx
+		movl %r8d, %ecx # r8d = row
+		movl %r9d, %edx # r9d = column
+		popq %rdi
+		popq %rsi
+
+		movl %r9d, %eax
+		shrl $1, %eax
+		addl $1, %eax
+		cmpl (%rdi), %eax # col/2 + 1 ? input_img->width
+		jge .Lright_edge
+		jl .Lnot_right_edge
+
+		.Lright_edge:
+			movb $1, %r10b
+			jmp .Lend_r_edge
+		
+		.Lnot_right_edge:
+			movb $0, %r10b
+			jmp .Lend_r_edge
+
+		.Lend_r_edge
+
+		movl %r8d, %eax
+		shrl $1, %eax
+		addl $1, %eax
+		cmpl 4(%rdi), %eax # row/2 + 1 ? input_img->height
+		jge .Lbottom_edge
+		jl .Lnot_bottom_edge
+
+		.Lbottom_edge:
+			movb $1, %r11b
+			jmp .Lend_b_edge
+
+		.Lnot_bottom_edge:
+			movb $0, %r11b
+			jmp .Lend_b_edge
+
+		.Lend_b_edge
+
+		pushq %rsi
+		movl %r8d, %esi
+		shrl $1, %esi
+		movl %r9d, %edx
+		shrl $1, %edx
+		call getPixel
+		movl %eax, %r12d # r12d = pixel_original
+		popq %rsi
+
+		movl %r8d, %eax
+		shrl $1, %eax
+		cmpl %eax, $0 # row % 2 ? 0
+		je .Lhandle_even_row
+		jne .Lhandle_odd_row
+
+		.Lhandle_even_row:
+			movl %r9d, %eax
+			shrl $1, %eax
+			cmpl %eax, $0 # col % 2 ? 0
+			je .Lhandle_even_pixels
+			jne .Lhandle_even_row_odd_col
+			
+			.Lhandle_even_pixels:
+				movl 8(%rsi), %r13 # r13 = output_img->data
+				movl %r12d, (%r13, %ecx, 4)
+				jmp .Lloop_expand
+			.Lhandle_even_row_odd_col:
+				cmpb $1, %r10b
+				je .Lhandle_even_pixels
+				
+				pushq %rsi
+				movl %r8d, %esi
+				shrl $1, %esi
+				movl %r9d, %edx
+				shrl $1, %edx
+				addl $1, %edx
+				call getPixel
+				movl %eax, %r13d # r13d = pixel_right
+				popq %rsi
+
+
+				jmp .Lloop_expand
+
+
+		
 
 
 
