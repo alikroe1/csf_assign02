@@ -982,14 +982,12 @@ imgproc_expand:
 		movl %eax, -16(%rbp) # -16(%rbp) = pixel_below
 
 		movq %r12, %rdi
-		movl -8(%rbp), %eax
-		sarl $1, %eax
-		addl $1, %eax
-		movl %eax, -8(%rbp)
 		movl %ebx, %esi
 		sarl $1, %esi
 		addl $1, %esi
 		movl -8(%rbp), %edx
+		sarl $1, %edx
+		addl $1, %edx
 		call getPixel # eax = pixel_diagonal
 
 		movl %r8d, %edi
