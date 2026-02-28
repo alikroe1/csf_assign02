@@ -114,17 +114,17 @@ createPixel:
 	 * Returns:
 	 *   %eax - final pixel
 	 */
-	# clean bits
+	/* clean bits */
 	andl $0xFF, %edi
 	andl $0xFF, %esi
 	andl $0xFF, %edx
 	andl $0xFF, %ecx
-	#shift RGBA values
+	/* shift RGBA values */
 	shll $24, %edi
 	shll $16, %esi
 	shll $8,  %edx
 	movl %edi, %eax
-	# add values to make pixel
+	/* add values to make pixel */
 	orl  %esi, %eax
 	orl  %edx, %eax
 	orl  %ecx, %eax
@@ -137,7 +137,7 @@ createAveragePixel:
 	pushq %r14
 	pushq %r15
 
-	# add pixel one values
+	/* add pixel one values */
 	call getRed
 	movl %eax, %r12d
 	call getGreen
@@ -147,7 +147,7 @@ createAveragePixel:
 	call getAlpha
 	movl %eax, %r15d
 
-	# add pixel two values
+	/* add pixel two values */
 	movl %esi, %edi
 	call getRed
 	addl %eax, %r12d
@@ -158,13 +158,13 @@ createAveragePixel:
 	call getAlpha
 	addl %eax, %r15d
 
-	# divide by 2
+	/* divide by 2 */
 	shrl $1, %r12d
 	shrl $1, %r13d
 	shrl $1, %r14d
 	shrl $1, %r15d
 
-	# return createPixel
+	/* return createPixel */
 	movl %r12d, %edi
 	movl %r13d, %esi
 	movl %r14d, %edx
@@ -184,7 +184,7 @@ quadAveragePixel:
 	pushq %r14
 	pushq %r15
 
-	# add pixel one values
+	/* add pixel one values */
 	call getRed
 	movl %eax, %r12d
 	call getGreen
@@ -194,7 +194,7 @@ quadAveragePixel:
 	call getAlpha
 	movl %eax, %r15d
 
-	# add pixel two values
+	/* add pixel two values */
 	movl %esi, %edi
 	call getRed
 	addl %eax, %r12d
@@ -205,7 +205,7 @@ quadAveragePixel:
 	call getAlpha
 	addl %eax, %r15d
 
-	# add pixel three values
+	/* add pixel three values */
 	movl %edx, %edi
 	call getRed
 	addl %eax, %r12d
@@ -216,7 +216,7 @@ quadAveragePixel:
 	call getAlpha
 	addl %eax, %r15d
 
-	# add pixel four values
+	/* add pixel four values */
 	movl %ecx, %edi
 	call getRed
 	addl %eax, %r12d
@@ -227,13 +227,13 @@ quadAveragePixel:
 	call getAlpha
 	addl %eax, %r15d
 
-	# divide by 4
+	/* divide by 4 */
 	shrl $2, %r12d
 	shrl $2, %r13d
 	shrl $2, %r14d
 	shrl $2, %r15d
 
-	# return createPixel
+	/* return createPixel */
 	movl %r12d, %edi
 	movl %r13d, %esi
 	movl %r14d, %edx
@@ -766,7 +766,7 @@ imgproc_expand:
 	movq %rdi, %rbx # rbx = input_img
 	movq %rsi, %r15 # r15 = output_img 
 
-	# for (int i = 0; i < output_img->width * output_img->height; i++)
+	/* for (int i = 0; i < output_img->width * output_img->height; i++) */
 	movl $0, %r12d # r12 = int i = 0
 
 	.Lbegin_expand_loop:
@@ -808,21 +808,21 @@ imgproc_expand:
 		call getPixel
 		movl %eax, -8(%rbp) # -8(%rbp) = pixel_original
 
-		# if (row % 2 == 0)
+		/* if (row % 2 == 0) */
 		testl $1, %r13d
 		jnz .Lodd_row
-			# if (col % 2 == 0)
+			/* if (col % 2 == 0) */
 			testl $1, %r14d
 			jnz .Leven_row_odd_col
 				# output_img->data[i] = pixel_original;
 				movq 8(%r15), %r8
 				movl -8(%rbp), %r9d
 				movl %r9d, (%r8, %r12d, 4)
-				# continue;
+				/* continue; */
 				jmp .Lcontinue
-			# if (col % 2 != 0)
+			/* if (col % 2 != 0) */
 			.Leven_row_odd_col:
-				# if (right_edge)
+				/* if (right_edge) */
 				testb $1, -1(%rbp)
 				jz .Leven_row_odd_col_not_RE
 					# output_img->data[i] = pixel_original;
@@ -830,7 +830,7 @@ imgproc_expand:
 					movl -8(%rbp), %r9d
 					movl %r9d, (%r8, %r12d, 4)
 					jmp .Lcontinue
-				# if (!right_edge)
+				/* if (!right_edge) */
 				.Leven_row_odd_col_not_RE:
 					# uint32_t pixel_right = getPixel(input_img, row/2, col/2 + 1);
 					movq %rbx, %rdi
@@ -849,22 +849,22 @@ imgproc_expand:
 					movq 8(%r15), %r8
 					movl %eax, (%r8, %r12d, 4)
 
-					# continue;
+					/* continue */
 					jmp .Lcontinue
 
-		# if (row % 2 != 0)
+		/* if (row % 2 != 0) */
 		.Lodd_row:
-			# if (col % 2 == 0)
+			/* if (col % 2 == 0) */
 			testl $1, %r14d
 			jnz .Lodd_row_odd_col
-				# if (bottom_edge)
+				/* if (bottom_edge) */
 				testb $1, -2(%rbp)
 				jz .Lodd_row_even_col_not_BE
 					# output_img->data[i] = pixel_original;
 					movq 8(%r15), %r8
 					movl -8(%rbp), %r9d
 					movl %r9d, (%r8, %r12d, 4)
-					# continue;
+					/* continue; */
 					jmp .Lcontinue
 				
 				.Lodd_row_even_col_not_BE:
@@ -885,14 +885,14 @@ imgproc_expand:
 					movq 8(%r15), %r8
 					movl %eax, (%r8, %r12d, 4)
 
-					# continue;
+					/* continue; */
 					jmp .Lcontinue
 
 			.Lodd_row_odd_col:
-				# if (!right_edge)
+				/* if (!right_edge) */
 				testb $1, -1(%rbp)
 				jnz .Lodd_row_odd_col_RE
-					# if (!bottom_edge)
+					/* if (!bottom_edge) */
 					testb $1, -2(%rbp)
 					jnz .Lodd_row_odd_col_not_RE_BE
 						# uint32_t pixel_right = getPixel(input_img, row/2, col/2 + 1);
@@ -932,21 +932,21 @@ imgproc_expand:
 						movq 8(%r15), %r8
 						movl %eax, (%r8, %r12d, 4)
 						jmp .Lcontinue
-					# else if (!right_edge)
+					/* else if (!right_edge) */
 					.Lodd_row_odd_col_not_RE_BE:
 						jmp .Leven_row_odd_col_not_RE
-				# else if (right_edge)
+				/* else if (right_edge) */
 				.Lodd_row_odd_col_RE:
-					# else if (!bottom_edge)
+					/* else if (!bottom_edge) */
 					testb $1, -2(%rbp)
 					jnz .Lodd_row_odd_col_RE_BE
 						jmp .Lodd_row_even_col_not_BE
 					.Lodd_row_odd_col_RE_BE:
-						# output_img->data[i] = pixel_original;
+						/* output_img->data[i] = pixel_original; */
 						movq 8(%r15), %r8
 						movl -8(%rbp), %r9d
 						movl %r9d, (%r8, %r12d, 4)
-						# continue;
+						/* continue; */
 						jmp .Lcontinue
 
 	.Lcontinue:
