@@ -130,149 +130,122 @@ createPixel:
 	orl  %ecx, %eax
 	ret
 
-	.globl pa_init
-pa_init:
-	pushq %rbp
-	movq  %rsp, %rbp
-
-	movl $0, (%rdi)      # pa->r = 0
-	movl $0, 4(%rdi)     # pa->g = 0
-	movl $0, 8(%rdi)     # pa->b = 0
-	movl $0, 12(%rdi)    # pa->a = 0
-	movl $0, 16(%rdi)    # pa->count = 0
-
-	popq %rbp
-	ret
-
-
-	.globl pa_update
-pa_update:
-	/*
-	 * pa_update - adds a pixel's color components to the PixelAverager
-	 *
-	 * Parameters:
-	 *   %rdi - pointer to PixelAverager
-	 *   %esi - pixel value
-	 */
-	pushq %rbp
-	movq  %rsp, %rbp
-
-	movl %esi, %eax
-	shrl $24, %eax           # eax = red
-	addl %eax, (%rdi)        # pa->r += red
-
-	movl %esi, %eax
-	shrl $16, %eax
-	andl $0xFF, %eax         # eax = green
-	addl %eax, 4(%rdi)       # pa->g += green
-
-	movl %esi, %eax
-	shrl $8, %eax
-	andl $0xFF, %eax         # eax = blue
-	addl %eax, 8(%rdi)       # pa->b += blue
-
-	movl %esi, %eax
-	andl $0xFF, %eax         # eax = alpha
-	addl %eax, 12(%rdi)      # pa->a += alpha
-
-	incl 16(%rdi)            # pa->count++
-
-	popq %rbp
-	ret
-
-	.globl pa_update_from_img
-pa_update_from_img:
-	/*
-	 * Parameters:
-	 *   %rdi - pointer to Image
-	 *   %esi - row
-	 *   %edx - col
-	 *   %rcx - pointer to PixelAverager
-	 */
-	pushq %rbp
-	movq  %rsp, %rbp
+.globl createAveragePixel
+createAveragePixel:
 	pushq %r12
 	pushq %r13
 	pushq %r14
 	pushq %r15
 
-	movq %rdi, %r12          # r12 = img
-	movl %esi, %r13d         # r13d = row
-	movl %edx, %r14d         # r14d = col
-	movq %rcx, %r15          # r15 = &pa
+	# add pixel one values
+	call getRed
+	movl %eax, %r12d
+	call getGreen
+	movl %eax, %r13d
+	call getBlue
+	movl %eax, %r14d
+	call getAlpha
+	movl %eax, %r15d
 
-	cmpl $0, %r13d           # row < 0?
-	jl   .Limg_oob
-	cmpl 4(%r12), %r13d      # row >= img->height?
-	jge  .Limg_oob
-	cmpl $0, %r14d           # col < 0?
-	jl   .Limg_oob
-	cmpl (%r12), %r14d       # col >= img->width?
-	jge  .Limg_oob
+	# add pixel two values
+	movl %esi, %edi
+	call getRed
+	addl %eax, %r12d
+	call getGreen
+	addl %eax, %r13d
+	call getBlue
+	addl %eax, %r12d
+	call getAlpha
+	addl %eax, %r15d
 
-	movl (%r12), %eax        # eax = img->width
-	imull %eax, %r13d        # r13d = row * width
-	addl %r14d, %r13d        # r13d = row * width + col
-	movq 8(%r12), %rax       # rax = img->data
-	movl (%rax, %r13, 4), %esi  # esi = data[row*width+col]
+	# divide by 2
+	shrl $1, %r12d
+	shrl $1, %r13d
+	shrl $1, %r14d
+	shrl $1, %r15d
 
-	movq %r15, %rdi
-	call pa_update
+	# return createPixel
+	movl %r12d, %edi
+	movl %r13d, %esi
+	movl %r14d, %edx
+	movl %r15d, %ecx
+	call createPixel
 
-.Limg_oob:                   # out of bounds, do nothing
 	popq %r15
 	popq %r14
 	popq %r13
 	popq %r12
-	popq %rbp
 	ret
 
-	.globl pa_avg_pixel
-pa_avg_pixel:
-	/*
-	 * Parameters:
-	 *   %rdi - pointer to PixelAverager
-	 *
-	 * Returns:
-	 *   averaged pixel in %eax
-	 */
-	pushq %rbp
-	movq  %rsp, %rbp
+.globl quadAveragePixel
+quadAveragePixel:
 	pushq %r12
+	pushq %r13
+	pushq %r14
+	pushq %r15
 
-	movq %rdi, %r12          # r12 = &pa
+	# add pixel one values
+	call getRed
+	movl %eax, %r12d
+	call getGreen
+	movl %eax, %r13d
+	call getBlue
+	movl %eax, %r14d
+	call getAlpha
+	movl %eax, %r15d
 
-	movl 16(%r12), %ecx      # ecx = pa->count
+	# add pixel two values
+	movl %esi, %edi
+	call getRed
+	addl %eax, %r12d
+	call getGreen
+	addl %eax, %r13d
+	call getBlue
+	addl %eax, %r12d
+	call getAlpha
+	addl %eax, %r15d
 
-	movl (%r12), %eax
-	xorl %edx, %edx
-	divl %ecx                # eax = pa->r / pa->count
-	movl %eax, %r8d          # r8d = avg red
+	# add pixel three values
+	movl %edx, %edi
+	call getRed
+	addl %eax, %r12d
+	call getGreen
+	addl %eax, %r13d
+	call getBlue
+	addl %eax, %r12d
+	call getAlpha
+	addl %eax, %r15d
 
-	movl 4(%r12), %eax
-	xorl %edx, %edx
-	divl %ecx                # eax = pa->g / pa->count
-	movl %eax, %r9d          # r9d = avg green
+	# add pixel four values
+	movl %ecx, %edi
+	call getRed
+	addl %eax, %r12d
+	call getGreen
+	addl %eax, %r13d
+	call getBlue
+	addl %eax, %r12d
+	call getAlpha
+	addl %eax, %r15d
 
-	movl 8(%r12), %eax
-	xorl %edx, %edx
-	divl %ecx                # eax = pa->b / pa->count
-	movl %eax, %r10d         # r10d = avg blue
+	# divide by 4
+	shrl $2, %r12d
+	shrl $2, %r13d
+	shrl $2, %r14d
+	shrl $2, %r15d
 
-	movl 12(%r12), %eax
-	xorl %edx, %edx
-	divl %ecx                # eax = pa->a / pa->count
-	movl %eax, %r11d         # r11d = avg alpha
+	# return createPixel
+	movl %r12d, %edi
+	movl %r13d, %esi
+	movl %r14d, %edx
+	movl %r15d, %ecx
+	call createPixel
 
-	movl %r8d, %edi
-	movl %r9d, %esi
-	movl %r10d, %edx
-	movl %r11d, %ecx
-	call createPixel         # eax = final averaged pixel
-
+	popq %r15
+	popq %r14
+	popq %r13
 	popq %r12
-	popq %rbp
 	ret
+
 
 /*
  * Definitions of image transformation functions
