@@ -817,7 +817,7 @@ imgproc_expand:
 				# output_img->data[i] = pixel_original;
 				movq 8(%r15), %r8
 				movl -8(%rbp), %r9d
-				movl %r9d, (%r8, %r12d, 4)
+				movl %r9d, (%r8, %r12, 4)
 				/* continue; */
 				jmp .Lcontinue
 			/* if (col % 2 != 0) */
@@ -828,7 +828,7 @@ imgproc_expand:
 					# output_img->data[i] = pixel_original;
 					movq 8(%r15), %r8
 					movl -8(%rbp), %r9d
-					movl %r9d, (%r8, %r12d, 4)
+					movl %r9d, (%r8, %r12, 4)
 					jmp .Lcontinue
 				/* if (!right_edge) */
 				.Leven_row_odd_col_not_RE:
@@ -847,7 +847,7 @@ imgproc_expand:
 					movl -12(%rbp), %esi
 					call createAveragePixel
 					movq 8(%r15), %r8
-					movl %eax, (%r8, %r12d, 4)
+					movl %eax, (%r8, %r12, 4)
 
 					/* continue */
 					jmp .Lcontinue
@@ -863,7 +863,7 @@ imgproc_expand:
 					# output_img->data[i] = pixel_original;
 					movq 8(%r15), %r8
 					movl -8(%rbp), %r9d
-					movl %r9d, (%r8, %r12d, 4)
+					movl %r9d, (%r8, %r12, 4)
 					/* continue; */
 					jmp .Lcontinue
 				
@@ -883,7 +883,7 @@ imgproc_expand:
 					movl -16(%rbp), %esi
 					call createAveragePixel
 					movq 8(%r15), %r8
-					movl %eax, (%r8, %r12d, 4)
+					movl %eax, (%r8, %r12, 4)
 
 					/* continue; */
 					jmp .Lcontinue
@@ -930,7 +930,7 @@ imgproc_expand:
 						movl -20(%rbp), %ecx
 						call quadAveragePixel
 						movq 8(%r15), %r8
-						movl %eax, (%r8, %r12d, 4)
+						movl %eax, (%r8, %r12, 4)
 						jmp .Lcontinue
 					/* else if (!right_edge) */
 					.Lodd_row_odd_col_not_RE_BE:
@@ -945,7 +945,7 @@ imgproc_expand:
 						/* output_img->data[i] = pixel_original; */
 						movq 8(%r15), %r8
 						movl -8(%rbp), %r9d
-						movl %r9d, (%r8, %r12d, 4)
+						movl %r9d, (%r8, %r12, 4)
 						/* continue; */
 						jmp .Lcontinue
 
