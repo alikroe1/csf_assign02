@@ -62,8 +62,9 @@ getPixel:
 	*   %rax - pointer to input_img->data[row * input_img->width + col]
  	*/
 	movl %esi, %eax
+	movl %edx, %ecx
 	imull 0(%rdi)
-	addl %edx, %eax
+	addl %ecx, %eax
 	movq 8(%rdi), %rdx
 	movslq %eax, %rax
 	movl (%rdx, %rax, 4), %eax
@@ -993,7 +994,7 @@ imgproc_expand:
 
 		movl %r8d, %edi
 		movl %r11d, %esi
-		movl %ebx, %edx
+		movl -16(%rbp), %edx
 		movl %eax, %ecx
 		call quadAveragePixel
 		movq 8(%r13), %rdx
