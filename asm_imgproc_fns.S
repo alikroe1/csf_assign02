@@ -821,284 +821,266 @@ imgproc_blur:
  *                    transformed pixels should be stored)
  */
 	.globl imgproc_expand
-
-/*
- * void imgproc_expand(struct Image *input_img, struct Image *output_img)
- *
- * Registers:
- *   %rbx = input_img
- *   %r12 = output_img
- *   %r13 = i (loop counter, 0..width*height of output)
- *   %r14 = row
- *   %r15 = col
- *   %rbp = saved base pointer
- *
- * struct Image layout (assumed):
- *   +0:  int32_t width
- *   +4:  int32_t height
- *   +8:  uint32_t *data
- */
-
 imgproc_expand:
-    pushq   %rbp
-    movq    %rsp, %rbp
-    pushq   %rbx
-    pushq   %r12
-    pushq   %r13
-    pushq   %r14
-    pushq   %r15
-    subq    $8, %rsp            /* align stack to 16 bytes */
+	/*
+	 * Parameters:
+	 *   %rdi - pointer to input_img
+	 *   %rsi - pointer to output_img
+	 *
+	 * Register use:
+	 *   %r12  - pointer to input_img (local copy)
+	 *   %r13  - pointer to output_img (local copy)
+	 *   %r14d - output_img->width * output_img->height (total pixels)
+	 *   %r15d - iterator (i)
+	 *   %ebx  - row
+	 *   %r8d  - pixel_original
+	 *   %r9d  - right_edge
+	 *   %r10d - bottom_edge
+	 *   %r11d - pixel_right
+	 *   %eax  - dynamic intermediate / return variable
+	 *   %ecx  - intermediate
+	 *   %edx  - intermediate
+	 *
+	 * Stack frame layout (offsets from %rbp):
+	 *   Per the template: subq comes BEFORE pushing callee-saved regs,
+	 *   so locals are at negative offsets from rbp, safely above saved regs.
+	 *   -8(%rbp)  - col
+	 *   -16(%rbp) - pixel_below
+	 *
+	 * Stack alignment:
+	 *   pushq %rbp           -> rsp -= 8  (total offset from 16-aligned: 8)
+	 *   subq $16, %rsp       -> rsp -= 16 (total: 24)
+	 *   pushq %r12           -> rsp -= 8  (total: 32)
+	 *   pushq %r13           -> rsp -= 8  (total: 40)
+	 *   pushq %r14           -> rsp -= 8  (total: 48)
+	 *   pushq %r15           -> rsp -= 8  (total: 56)
+	 *   pushq %rbx           -> rsp -= 8  (total: 64) <- 16-byte aligned, good
+	 */
 
-    movq    %rdi, %rbx          /* input_img */
-    movq    %rsi, %r12          /* output_img */
+	pushq %rbp                       /* save caller's frame pointer */
+	movq  %rsp, %rbp                 /* set our frame pointer */
+	subq  $16, %rsp                  /* reserve 16 bytes for locals: col at -8(%rbp), pixel_below at -16(%rbp) */
+	pushq %r12                       /* save callee-saved registers */
+	pushq %r13
+	pushq %r14
+	pushq %r15
+	pushq %rbx
 
-    /* compute total pixels = output_img->width * output_img->height */
-    movl    0(%r12), %eax       /* output_img->width */
-    movl    4(%r12), %ecx       /* output_img->height */
-    imull   %ecx, %eax
-    movl    %eax, %r13d         /* total = width * height */
+	movq %rdi, %r12                  /* r12 = input_img */
+	movq %rsi, %r13                  /* r13 = output_img */
 
-    xorl    %r13d, %r13d        /* i = 0 */
+	movl (%r13), %eax                /* eax = output_img->width */
+	imull 4(%r13), %eax              /* eax = output_img->width * output_img->height */
+	movl %eax, %r14d                 /* r14d = total output pixels */
 
-.loop_start:
-    /* check i < output_img->width * output_img->height */
-    movl    0(%r12), %eax
-    movl    4(%r12), %ecx
-    imull   %ecx, %eax
-    cmpl    %eax, %r13d
-    jge     .loop_end
+	movl $0, %r15d                   /* r15d = i = 0 */
 
-    /* row = rowIndex(i, output_img->width) */
-    movl    %r13d, %edi
-    movl    0(%r12), %esi
-    call    rowIndex
-    movl    %eax, %r14d         /* row */
+	.Lloop_expand:
+		cmpl %r14d, %r15d            /* compare i with total pixels */
+		jge .Lloop_expand_done       /* if i >= total, exit loop */
 
-    /* col = columnIndex(i, output_img->width) */
-    movl    %r13d, %edi
-    movl    0(%r12), %esi
-    call    columnIndex
-    movl    %eax, %r15d         /* col */
+		/* --- compute row = rowIndex(i, output_img->width) --- */
+		movl %r15d, %edi             /* arg1 = i */
+		movl (%r13), %esi            /* arg2 = output_img->width */
+		call rowIndex
+		movl %eax, %ebx              /* ebx = row */
 
-    /* right_edge = (col/2 + 1 >= input_img->width) */
-    movl    %r15d, %eax
-    sarl    $1, %eax            /* col/2 */
-    addl    $1, %eax            /* col/2 + 1 */
-    cmpl    0(%rbx), %eax       /* compare with input_img->width */
-    setge   %cl
-    movzbl  %cl, %ecx
-    movl    %ecx, -36(%rbp)     /* right_edge on stack (we use stack local) */
-    /* actually store in a callee-saved spot — use stack */
-    /* We'll use: -36(%rbp) = right_edge, -40(%rbp) = bottom_edge */
-    /* -44(%rbp) = pixel_original */
+		/* --- compute col = columnIndex(i, output_img->width) --- */
+		movl %r15d, %edi             /* arg1 = i */
+		movl (%r13), %esi            /* arg2 = output_img->width */
+		call columnIndex
+		movl %eax, -8(%rbp)          /* store col in stack local */
 
-    /* bottom_edge = (row/2 + 1 >= input_img->height) */
-    movl    %r14d, %eax
-    sarl    $1, %eax            /* row/2 */
-    addl    $1, %eax            /* row/2 + 1 */
-    cmpl    4(%rbx), %eax       /* compare with input_img->height */
-    setge   %cl
-    movzbl  %cl, %ecx
-    movl    %ecx, -40(%rbp)     /* bottom_edge */
+		/* --- right_edge = (col/2 + 1 >= input_img->width) --- */
+		movl -8(%rbp), %edx          /* edx = col */
+		sarl $1, %edx                /* edx = col/2 */
+		addl $1, %edx                /* edx = col/2 + 1 */
+		cmpl (%r12), %edx            /* compare col/2+1 with input_img->width */
+		setge %r9b                   /* r9b = 1 if col/2+1 >= width (right edge) */
+		movzbl %r9b, %r9d            /* zero-extend to r9d */
 
-    /* pixel_original = getPixel(input_img, row/2, col/2) */
-    movq    %rbx, %rdi
-    movl    %r14d, %esi
-    sarl    $1, %esi            /* row/2 */
-    movl    %r15d, %edx
-    sarl    $1, %edx            /* col/2 */
-    call    getPixel
-    movl    %eax, -44(%rbp)     /* pixel_original */
+		/* --- bottom_edge = (row/2 + 1 >= input_img->height) --- */
+		movl %ebx, %edx              /* edx = row */
+		sarl $1, %edx                /* edx = row/2 */
+		addl $1, %edx                /* edx = row/2 + 1 */
+		cmpl 4(%r12), %edx           /* compare row/2+1 with input_img->height */
+		setge %r10b                  /* r10b = 1 if row/2+1 >= height (bottom edge) */
+		movzbl %r10b, %r10d          /* zero-extend to r10d */
 
-    /* if (row % 2 == 0 && col % 2 == 0) */
-    movl    %r14d, %eax
-    andl    $1, %eax
-    jne     .not_even_even
-    movl    %r15d, %eax
-    andl    $1, %eax
-    jne     .not_even_even
+		/* --- pixel_original = getPixel(input_img, row/2, col/2) --- */
+		movq %r12, %rdi              /* arg1 = input_img */
+		movl %ebx, %esi              /* esi = row */
+		sarl $1, %esi                /* esi = row/2 */
+		movl -8(%rbp), %edx          /* edx = col */
+		sarl $1, %edx                /* edx = col/2 */
+		call getPixel
+		movl %eax, %r8d              /* r8d = pixel_original */
 
-    /* output_img->data[i] = pixel_original */
-    movq    8(%r12), %rax       /* output_img->data */
-    movl    -44(%rbp), %ecx
-    movl    %ecx, (%rax, %r13, 4)
-    jmp     .loop_next
+		/* --- check row parity first: if row is even, go to even-row handler --- */
+		movl %ebx, %eax              /* eax = row */
+		andl $1, %eax                /* eax = row % 2 */
+		cmpl $0, %eax
+		je .Lexpand_even_row         /* if row is even, jump to even-row handler */
 
-.not_even_even:
-    /* if (col % 2 != 0 && row % 2 == 0) — odd col, even row */
-    movl    %r15d, %eax
-    andl    $1, %eax
-    je      .not_odd_col_even_row
-    movl    %r14d, %eax
-    andl    $1, %eax
-    jne     .not_odd_col_even_row
+		/* --- row is odd: check col parity --- */
+		movl -8(%rbp), %ecx          /* ecx = col */
+		andl $1, %ecx                /* ecx = col % 2 */
+		cmpl $0, %ecx
+		jne .Lexpand_odd_odd         /* if col is also odd, handle diagonal case */
 
-    /* if (right_edge) => output = pixel_original */
-    cmpl    $0, -36(%rbp)
-    je      .odd_col_not_right_edge
+		/* --- row odd, col even: average with pixel below --- */
+		cmpl $0, %r10d               /* check if bottom edge */
+		jne .Lexpand_use_original    /* if bottom edge, just use original */
 
-    movq    8(%r12), %rax
-    movl    -44(%rbp), %ecx
-    movl    %ecx, (%rax, %r13, 4)
-    jmp     .loop_next
+		/* pixel_below = getPixel(input_img, row/2 + 1, col/2) */
+		movq %r12, %rdi              /* arg1 = input_img */
+		movl %ebx, %esi              /* esi = row */
+		sarl $1, %esi                /* esi = row/2 */
+		addl $1, %esi                /* esi = row/2 + 1 */
+		movl -8(%rbp), %edx          /* edx = col */
+		sarl $1, %edx                /* edx = col/2 */
+		call getPixel                /* eax = pixel_below */
+		movl %r8d, %edi              /* arg1 = pixel_original */
+		movl %eax, %esi              /* arg2 = pixel_below */
+		call createAveragePixel      /* eax = average of original and below */
+		movq 8(%r13), %rdx           /* rdx = output_img->data */
+		movl %eax, (%rdx, %r15, 4)   /* output_img->data[i] = averaged pixel */
+		jmp .Lcontinue
 
-.odd_col_not_right_edge:
-    /* pixel_right = getPixel(input_img, row/2, col/2 + 1) */
-    movq    %rbx, %rdi
-    movl    %r14d, %esi
-    sarl    $1, %esi
-    movl    %r15d, %edx
-    sarl    $1, %edx
-    addl    $1, %edx
-    call    getPixel
-    /* createAveragePixel(pixel_original, pixel_right) */
-    movl    -44(%rbp), %edi
-    movl    %eax, %esi
-    call    createAveragePixel
-    movq    8(%r12), %rcx
-    movl    %eax, (%rcx, %r13, 4)
-    jmp     .loop_next
+	.Lexpand_even_row:
+		/* --- row is even: check col parity --- */
+		movl -8(%rbp), %ecx          /* ecx = col */
+		andl $1, %ecx                /* ecx = col % 2 */
+		cmpl $0, %ecx
+		je .Lexpand_even_even        /* if col also even, direct copy */
 
-.not_odd_col_even_row:
-    /* if (row % 2 != 0 && col % 2 == 0) — odd row, even col */
-    movl    %r14d, %eax
-    andl    $1, %eax
-    je      .not_odd_row_even_col
-    movl    %r15d, %eax
-    andl    $1, %eax
-    jne     .not_odd_row_even_col
+		/* --- row even, col odd: average with pixel to the right --- */
+		cmpl $0, %r9d                /* check if right edge */
+		jne .Lexpand_use_original    /* if right edge, just use original */
 
-    /* if (bottom_edge) => output = pixel_original */
-    cmpl    $0, -40(%rbp)
-    je      .odd_row_not_bottom_edge
+		/* pixel_right = getPixel(input_img, row/2, col/2 + 1) */
+		movq %r12, %rdi              /* arg1 = input_img */
+		movl %ebx, %esi              /* esi = row */
+		sarl $1, %esi                /* esi = row/2 */
+		movl -8(%rbp), %edx          /* edx = col */
+		sarl $1, %edx                /* edx = col/2 */
+		addl $1, %edx                /* edx = col/2 + 1 */
+		call getPixel                /* eax = pixel_right */
+		movl %r8d, %edi              /* arg1 = pixel_original */
+		movl %eax, %esi              /* arg2 = pixel_right */
+		call createAveragePixel      /* eax = average of original and right */
+		movq 8(%r13), %rdx           /* rdx = output_img->data */
+		movl %eax, (%rdx, %r15, 4)   /* output_img->data[i] = averaged pixel */
+		jmp .Lcontinue
 
-    movq    8(%r12), %rax
-    movl    -44(%rbp), %ecx
-    movl    %ecx, (%rax, %r13, 4)
-    jmp     .loop_next
+	.Lexpand_even_even:
+		/* --- row even, col even: direct copy of pixel_original --- */
+		movq 8(%r13), %rdx           /* rdx = output_img->data */
+		movl %r8d, (%rdx, %r15, 4)   /* output_img->data[i] = pixel_original */
+		jmp .Lcontinue
 
-.odd_row_not_bottom_edge:
-    /* pixel_below = getPixel(input_img, row/2 + 1, col/2) */
-    movq    %rbx, %rdi
-    movl    %r14d, %esi
-    sarl    $1, %esi
-    addl    $1, %esi
-    movl    %r15d, %edx
-    sarl    $1, %edx
-    call    getPixel
-    /* createAveragePixel(pixel_original, pixel_below) */
-    movl    -44(%rbp), %edi
-    movl    %eax, %esi
-    call    createAveragePixel
-    movq    8(%r12), %rcx
-    movl    %eax, (%rcx, %r13, 4)
-    jmp     .loop_next
+	.Lexpand_odd_odd:
+		/* --- both row and col odd: quad average (with edge checks) --- */
+		cmpl $0, %r9d                /* check right_edge */
+		jne .Lexpand_odd_odd_right_edge  /* if right edge, skip right neighbor */
 
-.not_odd_row_even_col:
-    /* both i and j are odd — diagonal case */
-    /* if (!right_edge && !bottom_edge) — full quad average */
-    cmpl    $0, -36(%rbp)
-    jne     .check_right_edge_only
-    cmpl    $0, -40(%rbp)
-    jne     .check_right_edge_only
+		cmpl $0, %r10d               /* check bottom_edge */
+		jne .Lexpand_odd_odd_bottom_edge /* if bottom edge, skip bottom neighbor */
 
-    /* pixel_right = getPixel(input_img, row/2, col/2 + 1) */
-    movq    %rbx, %rdi
-    movl    %r14d, %esi
-    sarl    $1, %esi
-    movl    %r15d, %edx
-    sarl    $1, %edx
-    addl    $1, %edx
-    call    getPixel
-    movl    %eax, -48(%rbp)     /* pixel_right */
+		/* --- full quad average: all 4 neighbors in bounds --- */
+		/* pixel_right = getPixel(input_img, row/2, col/2 + 1) */
+		movq %r12, %rdi              /* arg1 = input_img */
+		movl %ebx, %esi              /* esi = row */
+		sarl $1, %esi                /* esi = row/2 */
+		movl -8(%rbp), %edx          /* edx = col */
+		sarl $1, %edx                /* edx = col/2 */
+		addl $1, %edx                /* edx = col/2 + 1 */
+		call getPixel
+		movl %eax, %r11d             /* r11d = pixel_right */
 
-    /* pixel_below = getPixel(input_img, row/2 + 1, col/2) */
-    movq    %rbx, %rdi
-    movl    %r14d, %esi
-    sarl    $1, %esi
-    addl    $1, %esi
-    movl    %r15d, %edx
-    sarl    $1, %edx
-    call    getPixel
-    movl    %eax, -52(%rbp)     /* pixel_below */
+		/* pixel_below = getPixel(input_img, row/2 + 1, col/2) */
+		movq %r12, %rdi              /* arg1 = input_img */
+		movl %ebx, %esi              /* esi = row */
+		sarl $1, %esi                /* esi = row/2 */
+		addl $1, %esi                /* esi = row/2 + 1 */
+		movl -8(%rbp), %edx          /* edx = col */
+		sarl $1, %edx                /* edx = col/2 */
+		call getPixel
+		movl %eax, -16(%rbp)         /* store pixel_below in stack local */
 
-    /* pixel_diagonal = getPixel(input_img, row/2 + 1, col/2 + 1) */
-    movq    %rbx, %rdi
-    movl    %r14d, %esi
-    sarl    $1, %esi
-    addl    $1, %esi
-    movl    %r15d, %edx
-    sarl    $1, %edx
-    addl    $1, %edx
-    call    getPixel
-    movl    %eax, -56(%rbp)     /* pixel_diagonal */
+		/* pixel_diagonal = getPixel(input_img, row/2 + 1, col/2 + 1) */
+		movq %r12, %rdi              /* arg1 = input_img */
+		movl %ebx, %esi              /* esi = row */
+		sarl $1, %esi                /* esi = row/2 */
+		addl $1, %esi                /* esi = row/2 + 1 */
+		movl -8(%rbp), %edx          /* edx = col */
+		sarl $1, %edx                /* edx = col/2 */
+		addl $1, %edx                /* edx = col/2 + 1 */
+		call getPixel                /* eax = pixel_diagonal */
 
-    /* quadAveragePixel(pixel_original, pixel_right, pixel_below, pixel_diagonal) */
-    movl    -44(%rbp), %edi
-    movl    -48(%rbp), %esi
-    movl    -52(%rbp), %edx
-    movl    -56(%rbp), %ecx
-    call    quadAveragePixel
-    movq    8(%r12), %rcx
-    movl    %eax, (%rcx, %r13, 4)
-    jmp     .loop_next
+		/* quadAveragePixel(pixel_original, pixel_right, pixel_below, pixel_diagonal) */
+		movl %r8d, %edi              /* arg1 = pixel_original */
+		movl %r11d, %esi             /* arg2 = pixel_right */
+		movl -16(%rbp), %edx         /* arg3 = pixel_below */
+		movl %eax, %ecx              /* arg4 = pixel_diagonal */
+		call quadAveragePixel
+		movq 8(%r13), %rdx           /* rdx = output_img->data */
+		movl %eax, (%rdx, %r15, 4)   /* output_img->data[i] = quad average */
+		jmp .Lcontinue
 
-.check_right_edge_only:
-    /* else if (!right_edge) — average with right neighbor */
-    cmpl    $0, -36(%rbp)
-    jne     .check_bottom_edge_only
+	.Lexpand_odd_odd_right_edge:
+		/* --- right edge but not bottom: average original and pixel_below --- */
+		cmpl $0, %r10d               /* check bottom_edge too */
+		jne .Lexpand_use_original    /* both edges: just use original */
 
-    /* pixel_right = getPixel(input_img, row/2, col/2 + 1) */
-    movq    %rbx, %rdi
-    movl    %r14d, %esi
-    sarl    $1, %esi
-    movl    %r15d, %edx
-    sarl    $1, %edx
-    addl    $1, %edx
-    call    getPixel
-    movl    -44(%rbp), %edi
-    movl    %eax, %esi
-    call    createAveragePixel
-    movq    8(%r12), %rcx
-    movl    %eax, (%rcx, %r13, 4)
-    jmp     .loop_next
+		/* pixel_below = getPixel(input_img, row/2 + 1, col/2) */
+		movq %r12, %rdi              /* arg1 = input_img */
+		movl %ebx, %esi              /* esi = row */
+		sarl $1, %esi                /* esi = row/2 */
+		addl $1, %esi                /* esi = row/2 + 1 */
+		movl -8(%rbp), %edx          /* edx = col */
+		sarl $1, %edx                /* edx = col/2 */
+		call getPixel                /* eax = pixel_below */
+		movl %r8d, %edi              /* arg1 = pixel_original */
+		movl %eax, %esi              /* arg2 = pixel_below */
+		call createAveragePixel      /* eax = average of original and below */
+		movq 8(%r13), %rdx           /* rdx = output_img->data */
+		movl %eax, (%rdx, %r15, 4)   /* output_img->data[i] = averaged pixel */
+		jmp .Lcontinue
 
-.check_bottom_edge_only:
-    /* else if (!bottom_edge) — average with below neighbor */
-    cmpl    $0, -40(%rbp)
-    jne     .corner_case
+	.Lexpand_odd_odd_bottom_edge:
+		/* --- bottom edge but not right: average original and pixel_right --- */
+		/* pixel_right = getPixel(input_img, row/2, col/2 + 1) */
+		movq %r12, %rdi              /* arg1 = input_img */
+		movl %ebx, %esi              /* esi = row */
+		sarl $1, %esi                /* esi = row/2 */
+		movl -8(%rbp), %edx          /* edx = col */
+		sarl $1, %edx                /* edx = col/2 */
+		addl $1, %edx                /* edx = col/2 + 1 */
+		call getPixel                /* eax = pixel_right */
+		movl %r8d, %edi              /* arg1 = pixel_original */
+		movl %eax, %esi              /* arg2 = pixel_right */
+		call createAveragePixel      /* eax = average of original and right */
+		movq 8(%r13), %rdx           /* rdx = output_img->data */
+		movl %eax, (%rdx, %r15, 4)   /* output_img->data[i] = averaged pixel */
+		jmp .Lcontinue
 
-    /* pixel_below = getPixel(input_img, row/2 + 1, col/2) */
-    movq    %rbx, %rdi
-    movl    %r14d, %esi
-    sarl    $1, %esi
-    addl    $1, %esi
-    movl    %r15d, %edx
-    sarl    $1, %edx
-    call    getPixel
-    movl    -44(%rbp), %edi
-    movl    %eax, %esi
-    call    createAveragePixel
-    movq    8(%r12), %rcx
-    movl    %eax, (%rcx, %r13, 4)
-    jmp     .loop_next
+	.Lexpand_use_original:
+		/* --- edge case: just use pixel_original directly --- */
+		movq 8(%r13), %rdx           /* rdx = output_img->data */
+		movl %r8d, (%rdx, %r15, 4)   /* output_img->data[i] = pixel_original */
 
-.corner_case:
-    /* both edges — output = pixel_original */
-    movq    8(%r12), %rax
-    movl    -44(%rbp), %ecx
-    movl    %ecx, (%rax, %r13, 4)
+	.Lcontinue:
+		incl %r15d                   /* i++ */
+		jmp .Lloop_expand            /* go back to loop condition */
 
-.loop_next:
-    incl    %r13d
-    jmp     .loop_start
-
-.loop_end:
-    addq    $8, %rsp
-    popq    %r15
-    popq    %r14
-    popq    %r13
-    popq    %r12
-    popq    %rbx
-    popq    %rbp
-    ret
+.Lloop_expand_done:
+	/* restore callee-saved registers and stack frame */
+	popq %rbx
+	popq %r15
+	popq %r14
+	popq %r13
+	popq %r12
+	addq  $16, %rsp                  /* reclaim local variable space */
+	popq  %rbp                       /* restore caller's frame pointer */
+	ret
